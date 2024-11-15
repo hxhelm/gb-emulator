@@ -1,29 +1,16 @@
 #![allow(dead_code)]
 
-use self::operators::*;
+use super::registers::*;
 use crate::cpu::CPU;
-
-mod operators {
-    pub(crate) enum R8 {
-        A,
-        B,
-        C,
-        D,
-        E,
-        H,
-        L,
-    }
-
-    pub(crate) enum R16 {
-        BC,
-        DE,
-        HL,
-    }
-}
 
 enum Instruction {
     Add(ADD),
     Adc(ADC),
+    Ld(LD),
+}
+
+pub(crate) trait Executable {
+    fn execute(&self, cpu: &mut CPU);
 }
 
 impl Executable for Instruction {
@@ -31,30 +18,38 @@ impl Executable for Instruction {
         match self {
             Self::Add(instruction) => instruction.execute(cpu),
             Self::Adc(instruction) => instruction.execute(cpu),
+            Self::Ld(instruction) => instruction.execute(cpu),
         }
     }
 }
 
-pub(crate) trait Executable {
-    fn execute(&self, cpu: &mut CPU);
-}
-
-pub(crate) enum Target8 {
+pub(crate) enum ByteTarget {
     Constant(u8),
     Register8(R8),
     /// ADD A,[HL] -> Read the byte from the 16-Bit address stored in the HL register
     HLAddress,
 }
 
-pub(crate) enum Target16 {
+pub(crate) enum WordTarget {
     /// ADD HL,R16: Adds any 16 bit register to the HL register
     Register16(R16),
     SP,
 }
 
+impl CPU {
+    /// Common access
+    fn read_bytetarget(&self, target: &ByteTarget) -> u8 {
+        match target {
+            ByteTarget::Constant(value) => *value,
+            ByteTarget::Register8(register) => self.read_r8(register),
+            ByteTarget::HLAddress => self.bus.read_byte(self.read_hl()),
+        }
+    }
+}
+
 pub(crate) enum ADD {
-    Byte(Target8),
-    Word(Target16),
+    Byte(ByteTarget),
+    Word(WordTarget),
     StackPointer(i8),
 }
 
@@ -62,12 +57,7 @@ impl Executable for ADD {
     fn execute(&self, cpu: &mut CPU) {
         match self {
             ADD::Byte(target) => {
-                let value = match target {
-                    Target8::Constant(value) => *value,
-                    Target8::Register8(register) => cpu.read_r8(register),
-                    Target8::HLAddress => cpu.bus.read_byte(cpu.read_hl()),
-                };
-
+                let value = cpu.read_bytetarget(target);
                 let (result, did_overflow) = cpu.registers.a.overflowing_add(value);
 
                 cpu.registers.f.zero = result == 0;
@@ -80,10 +70,9 @@ impl Executable for ADD {
             }
             ADD::Word(target) => {
                 let value = match target {
-                    Target16::Register16(register) => cpu.read_r16(register),
-                    Target16::SP => cpu.registers.sp,
+                    WordTarget::Register16(register) => cpu.read_r16(register),
+                    WordTarget::SP => cpu.registers.sp,
                 };
-
                 let (result, did_overflow) = cpu.read_hl().overflowing_add(value);
 
                 cpu.registers.f.negative = false;
@@ -136,26 +125,76 @@ impl Executable for ADC {
     }
 }
 
-impl CPU {
-    fn read_r8(&self, register: &R8) -> u8 {
-        match register {
-            R8::A => self.registers.a,
-            R8::B => self.registers.b,
-            R8::C => self.registers.c,
-            R8::D => self.registers.d,
-            R8::E => self.registers.e,
-            R8::H => self.registers.h,
-            R8::L => self.registers.l,
-        }
-    }
+pub(crate) enum Load {
+    // LD A,[HLI]
+    // LD A,[HLD]
+    // LD A,[r16]
+    // LD A,[n16]
+    LoadToA(R16Mem),
+    // LD r8,r8
+    // LD r8,n8
+    // LD r8,[HL]
+    LoadToR8(R8, ByteTarget),
+    // LD r16,n16
+    LoadToR16(R16, u16),
+}
 
-    fn read_r16(&self, register: &R16) -> u16 {
-        match register {
-            R16::BC => ((self.registers.b as u16) << 8) | (self.registers.c as u16),
-            R16::DE => ((self.registers.d as u16) << 8) | (self.registers.e as u16),
-            R16::HL => ((self.registers.h as u16) << 8) | (self.registers.l as u16),
-        }
+pub(crate) enum Store {
+    // LD [r16],A
+    // LD [n16],A
+    // LD [HLI],A
+    // LD [HLD],A
+    StoreA(R16Mem),
+    // LD [HL],r8
+    StoreHLRegister(R8),
+    // LD [HL],n8
+    StoreHLConstant(u8),
+}
+
+pub(crate) enum LD {
+    Load(Load),
+    Store(Store),
+}
+
+impl Executable for LD {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            LD::Load(load) => match load {
+                Load::LoadToA(target) => {
+                    cpu.registers.a = cpu.read_from(target);
+                }
+                Load::LoadToR8(register, target) => {
+                    let value = cpu.read_bytetarget(target);
+                    cpu.write_r8(register, value);
+                }
+                Load::LoadToR16(register, value) => {
+                    cpu.write_r16(register, *value);
+                }
+            },
+            LD::Store(store) => match store {
+                Store::StoreA(target) => cpu.store_at(target, cpu.registers.a),
+                Store::StoreHLRegister(register) => {
+                    let address = cpu.read_hl();
+                    cpu.bus.write_byte(address, cpu.read_r8(register))
+                }
+                Store::StoreHLConstant(value) => {
+                    let address = cpu.read_hl();
+                    cpu.bus.write_byte(address, *value)
+                }
+            },
+        };
     }
+}
+
+pub(crate) enum LDH {
+    // LDH [n16],A
+    StoreConstant(),
+    // LDH [C],A
+    StoreOffset(),
+    // LDH A,[n16]
+    LoadConstant(),
+    // LDH A,[C]
+    LoadOffset(),
 }
 
 #[cfg(test)]
@@ -168,7 +207,7 @@ mod tests {
 
         assert_eq!(cpu.registers.a, 0);
 
-        Instruction::Add(ADD::Byte(Target8::Constant(0xFF))).execute(&mut cpu);
+        Instruction::Add(ADD::Byte(ByteTarget::Constant(0xFF))).execute(&mut cpu);
 
         assert_eq!(cpu.registers.a, 0xFF);
         assert_eq!(cpu.registers.f.zero, false);
@@ -176,7 +215,7 @@ mod tests {
         assert_eq!(cpu.registers.f.carry, false);
         assert_eq!(cpu.registers.f.half_carry, false);
 
-        Instruction::Add(ADD::Byte(Target8::Constant(1))).execute(&mut cpu);
+        Instruction::Add(ADD::Byte(ByteTarget::Constant(1))).execute(&mut cpu);
 
         assert_eq!(cpu.registers.a, 0);
         assert_eq!(cpu.registers.f.zero, true);
@@ -184,7 +223,7 @@ mod tests {
         assert_eq!(cpu.registers.f.carry, true);
         assert_eq!(cpu.registers.f.half_carry, true);
 
-        Instruction::Add(ADD::Byte(Target8::Constant(0x0F))).execute(&mut cpu);
+        Instruction::Add(ADD::Byte(ByteTarget::Constant(0x0F))).execute(&mut cpu);
 
         assert_eq!(cpu.registers.a, 0x0F);
         assert_eq!(cpu.registers.f.zero, false);
@@ -192,7 +231,7 @@ mod tests {
         assert_eq!(cpu.registers.f.carry, false);
         assert_eq!(cpu.registers.f.half_carry, false);
 
-        Instruction::Add(ADD::Byte(Target8::Constant(1))).execute(&mut cpu);
+        Instruction::Add(ADD::Byte(ByteTarget::Constant(1))).execute(&mut cpu);
 
         assert_eq!(cpu.registers.a, 0x10);
         assert_eq!(cpu.registers.f.zero, false);
