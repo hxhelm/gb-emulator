@@ -3,7 +3,7 @@
 use super::registers::*;
 use crate::cpu::CPU;
 
-enum Instruction {
+pub enum Instruction {
     Add(ADD),
     Adc(ADC),
     Ld(LD),
@@ -125,7 +125,7 @@ impl Executable for ADC {
     }
 }
 
-pub(crate) enum Load {
+pub(crate) enum LD {
     // LD A,[HLI]
     // LD A,[HLD]
     // LD A,[r16]
@@ -137,9 +137,12 @@ pub(crate) enum Load {
     LoadToR8(R8, ByteTarget),
     // LD r16,n16
     LoadToR16(R16, u16),
-}
-
-pub(crate) enum Store {
+    // LD SP,n16
+    LoadToSP(u16),
+    // LD SP,HL
+    LoadHLToSp,
+    // LD HL,SP+e8
+    LoadSPToHL(i8),
     // LD [r16],A
     // LD [n16],A
     // LD [HLI],A
@@ -149,39 +152,43 @@ pub(crate) enum Store {
     StoreHLRegister(R8),
     // LD [HL],n8
     StoreHLConstant(u8),
-}
-
-pub(crate) enum LD {
-    Load(Load),
-    Store(Store),
+    // LD [n16],SP
+    StoreSP(u16),
 }
 
 impl Executable for LD {
     fn execute(&self, cpu: &mut CPU) {
         match self {
-            LD::Load(load) => match load {
-                Load::LoadToA(target) => {
-                    cpu.registers.a = cpu.read_from(target);
-                }
-                Load::LoadToR8(register, target) => {
-                    let value = cpu.read_bytetarget(target);
-                    cpu.write_r8(register, value);
-                }
-                Load::LoadToR16(register, value) => {
-                    cpu.write_r16(register, *value);
-                }
-            },
-            LD::Store(store) => match store {
-                Store::StoreA(target) => cpu.store_at(target, cpu.registers.a),
-                Store::StoreHLRegister(register) => {
-                    let address = cpu.read_hl();
-                    cpu.bus.write_byte(address, cpu.read_r8(register))
-                }
-                Store::StoreHLConstant(value) => {
-                    let address = cpu.read_hl();
-                    cpu.bus.write_byte(address, *value)
-                }
-            },
+            LD::LoadToA(target) => {
+                cpu.registers.a = cpu.read_from(target);
+            }
+            LD::LoadToR8(register, target) => {
+                let value = cpu.read_bytetarget(target);
+                cpu.write_r8(register, value);
+            }
+            LD::LoadToR16(register, value) => {
+                cpu.write_r16(register, *value);
+            }
+            LD::LoadToSP(value) => cpu.registers.sp = *value,
+            LD::LoadHLToSp => cpu.registers.sp = cpu.read_hl(),
+            LD::LoadSPToHL(offset) => {
+                let (sp, _) = cpu.registers.sp.overflowing_add_signed((*offset).into());
+                cpu.write_hl(sp);
+            }
+            LD::StoreA(target) => cpu.store_at(target, cpu.registers.a),
+            LD::StoreHLRegister(register) => {
+                let address = cpu.read_hl();
+                cpu.bus.write_byte(address, cpu.read_r8(register))
+            }
+            LD::StoreHLConstant(value) => {
+                let address = cpu.read_hl();
+                cpu.bus.write_byte(address, *value)
+            }
+            LD::StoreSP(value) => {
+                let sp = cpu.registers.sp;
+                cpu.bus.write_byte(*value, (sp & 0xFF) as u8);
+                cpu.bus.write_byte(*value + 1, (sp >> 8) as u8)
+            }
         };
     }
 }
