@@ -8,7 +8,8 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 
 ### CPU Opcodes Implementation Checklist
 
-#### Core Instructions (0x00-0xFF)
+<details>
+<summary>Core Instructions (0x00-0xFF)</summary>
 
 - [ ] 0x00, NOP: 1B, 4C, Flags: - - - -
 - [ ] 0x01, LD BC,n16: 3B, 12C, Flags: - - - -
@@ -255,4 +256,5 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [ ] 0xFB, EI: 1B, 4C, Flags: - - - -
 - [ ] 0xFE, CP A,n8: 2B, 8C, Flags: Z 1 H C
 - [ ] 0xEF, RST $38: 1B, 16C, Flags: - - - -
+</details>
 
