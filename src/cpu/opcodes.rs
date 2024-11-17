@@ -12,7 +12,7 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
 
     // unnecessary computation 95% of the time, maybe pass two u8s instead and provide
     // helper function for computation?
-    let a16 = (*param1 << 8) as u16 | (*param2 as u16);
+    let a16 = (*param1 as u16) << 8 | (*param2 as u16);
 
     match opcode {
         0x06 => (Instruction::Ld(LD::LoadToR8(R8::B, ByteTarget::Constant(*param1))), 2),
