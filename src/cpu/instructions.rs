@@ -7,6 +7,7 @@ pub enum Instruction {
     Add(ADD),
     Adc(ADC),
     Ld(LD),
+    Ldh(LDH),
     Invalid(u8),
 }
 
@@ -20,7 +21,8 @@ impl Executable for Instruction {
             Self::Add(instruction) => instruction.execute(cpu),
             Self::Adc(instruction) => instruction.execute(cpu),
             Self::Ld(instruction) => instruction.execute(cpu),
-            Self::Invalid(opcode) => todo!(), // freeze and dump out opcode for debugging,
+            Self::Ldh(instruction) => instruction.execute(cpu),
+            Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
 }
@@ -65,8 +67,7 @@ impl Executable for ADD {
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
-                cpu.registers.f.half_carry =
-                    (((cpu.registers.a & 0xF) + (value & 0xF)) & 0x10) == 0x10;
+                cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
 
                 cpu.registers.a = result;
             }
@@ -79,8 +80,7 @@ impl Executable for ADD {
 
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
-                cpu.registers.f.half_carry =
-                    (((cpu.read_hl() & 0xFFF) + (value & 0xFFF)) & 0x1000) == 0x1000;
+                cpu.registers.f.half_carry = half_carry_set_u16(cpu.read_hl(), value);
 
                 cpu.write_hl(result);
             }
@@ -92,8 +92,8 @@ impl Executable for ADD {
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
 
-                let sp_u8 = ((cpu.registers.sp & 0xFF00) >> 8) as i8;
-                cpu.registers.f.half_carry = (((sp_u8 & 0xF) + (offset & 0xF)) & 0x10) == 0x10;
+                let sp_i8 = ((cpu.registers.sp & 0xFF00) >> 8) as i8;
+                cpu.registers.f.half_carry = half_carry_set_i8(sp_i8, *offset);
 
                 cpu.registers.sp = result;
             }
@@ -131,8 +131,9 @@ pub(crate) enum LD {
     // LD A,[HLI]
     // LD A,[HLD]
     // LD A,[r16]
-    // LD A,[n16]
     LoadToA(R16Mem),
+    // LD A,[n16]
+    LoadToADirectly(u16),
     // LD r8,r8
     // LD r8,n8
     // LD r8,[HL]
@@ -142,14 +143,15 @@ pub(crate) enum LD {
     // LD SP,n16
     LoadToSP(u16),
     // LD SP,HL
-    LoadHLToSp,
+    LoadHLToSP,
     // LD HL,SP+e8
     LoadSPToHL(i8),
     // LD [r16],A
-    // LD [n16],A
     // LD [HLI],A
     // LD [HLD],A
     StoreA(R16Mem),
+    // LD [n16],A
+    StoreADirectly(u16),
     // LD [HL],r8
     StoreHLRegister(R8),
     // LD [HL],n8
@@ -164,6 +166,7 @@ impl Executable for LD {
             LD::LoadToA(target) => {
                 cpu.registers.a = cpu.read_from(target);
             }
+            LD::LoadToADirectly(address) => cpu.registers.a = cpu.bus.read_byte(*address),
             LD::LoadToR8(register, target) => {
                 let value = cpu.read_bytetarget(target);
                 cpu.write_r8(register, value);
@@ -172,12 +175,18 @@ impl Executable for LD {
                 cpu.write_r16(register, *value);
             }
             LD::LoadToSP(value) => cpu.registers.sp = *value,
-            LD::LoadHLToSp => cpu.registers.sp = cpu.read_hl(),
+            LD::LoadHLToSP => cpu.registers.sp = cpu.read_hl(),
             LD::LoadSPToHL(offset) => {
-                let (sp, _) = cpu.registers.sp.overflowing_add_signed((*offset).into());
+                let (sp, did_overflow) = cpu.registers.sp.overflowing_add_signed((*offset).into());
+
+                cpu.registers.f.carry = did_overflow;
+                let sp_i8 = ((cpu.registers.sp & 0xFF00) >> 8) as i8;
+                cpu.registers.f.half_carry = half_carry_set_i8(sp_i8, *offset);
+
                 cpu.write_hl(sp);
             }
             LD::StoreA(target) => cpu.store_at(target, cpu.registers.a),
+            LD::StoreADirectly(address) => cpu.bus.write_byte(*address, cpu.registers.a),
             LD::StoreHLRegister(register) => {
                 let address = cpu.read_hl();
                 cpu.bus.write_byte(address, cpu.read_r8(register))
@@ -196,14 +205,39 @@ impl Executable for LD {
 }
 
 pub(crate) enum LDH {
-    // LDH [n16],A
-    StoreConstant(),
-    // LDH [C],A
-    StoreOffset(),
-    // LDH A,[n16]
-    LoadConstant(),
+    // LDH A,[n8]
+    LoadConstant(u8),
     // LDH A,[C]
-    LoadOffset(),
+    LoadOffset,
+    // LDH [n8],A
+    StoreConstant(u8),
+    // LDH [C],A
+    StoreOffset,
+}
+
+impl Executable for LDH {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            LDH::LoadConstant(offset) => cpu.registers.a = cpu.bus.read_byte_at_offset(*offset),
+            LDH::LoadOffset => cpu.registers.a = cpu.bus.read_byte_at_offset(cpu.registers.c),
+            LDH::StoreConstant(offset) => cpu.bus.write_byte_at_offset(*offset, cpu.registers.a),
+            LDH::StoreOffset => cpu
+                .bus
+                .write_byte_at_offset(cpu.registers.c, cpu.registers.a),
+        }
+    }
+}
+
+fn half_carry_set_u8(a: u8, b: u8) -> bool {
+    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
+}
+
+fn half_carry_set_i8(a: i8, b: i8) -> bool {
+    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
+}
+
+fn half_carry_set_u16(a: u16, b: u16) -> bool {
+    (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) == 0x1000
 }
 
 #[cfg(test)]

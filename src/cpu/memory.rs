@@ -24,8 +24,18 @@ impl MemoryBus {
         self.memory[address as usize]
     }
 
+    pub fn read_byte_at_offset(&self, offset: u8) -> u8 {
+        let address = 0xFF00 + offset as u16;
+        self.read_byte(address)
+    }
+
     pub fn write_byte(&mut self, address: u16, byte: u8) {
         self.memory[address as usize] = byte;
+    }
+
+    pub fn write_byte_at_offset(&mut self, offset: u8, byte: u8) {
+        let address = 0xFF00 + offset as u16;
+        self.write_byte(address, byte)
     }
 }
 
@@ -59,7 +69,9 @@ impl CPU {
     fn step(&mut self) {
         let instruction_data = self.fetch();
 
-        let instruction = get_instruction(&instruction_data);
+        let (instruction, bytes) = get_instruction(&instruction_data);
+
+        self.registers.pc += bytes;
 
         instruction.execute(self);
     }
