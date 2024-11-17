@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use std::{convert::From, usize};
+use super::memory::*;
+use std::convert::From;
 
 #[derive(Default)]
 pub(crate) struct Flags {
@@ -37,30 +38,6 @@ impl From<u8> for Flags {
             half_carry,
             carry,
         }
-    }
-}
-
-const MEMORY_BUS_SIZE: usize = 0xFFFF;
-
-pub(crate) struct MemoryBus {
-    memory: [u8; MEMORY_BUS_SIZE],
-}
-
-impl Default for MemoryBus {
-    fn default() -> Self {
-        Self {
-            memory: [Default::default(); MEMORY_BUS_SIZE],
-        }
-    }
-}
-
-impl MemoryBus {
-    pub fn read_byte(&self, address: u16) -> u8 {
-        self.memory[address as usize]
-    }
-
-    pub fn write_byte(&mut self, address: u16, byte: u8) {
-        self.memory[address as usize] = byte;
     }
 }
 

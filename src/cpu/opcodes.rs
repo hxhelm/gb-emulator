@@ -1,25 +1,25 @@
-use super::{instructions::*, registers::R8};
+use super::{
+    instructions::*,
+    memory::InstructionData,
+    registers::{R16Mem, R8},
+};
 
-fn get_instruction_from_byte(byte: u8) -> Option<Instruction> {
-    let n1: u8 = 0;
+#[rustfmt::skip]
+pub(crate) fn get_instruction(data: &InstructionData) -> Instruction {
+    let InstructionData { opcode, param1, param2 } = data;
 
-    match byte {
-        0x06..0x2E => {
-            let register = match byte {
-                0x06 => R8::B,
-                0x0E => R8::C,
-                0x16 => R8::D,
-                0x1E => R8::E,
-                0x26 => R8::H,
-                0x2E => R8::L,
-                _ => return None,
-            };
-
-            Some(Instruction::Ld(LD::LoadToR8(
-                register,
-                ByteTarget::Constant(n1),
-            )))
-        }
-        _ => None,
+    match opcode {
+        0x06 => Instruction::Ld(LD::LoadToR8(R8::B, ByteTarget::Constant(*param1))),
+        0x0E => Instruction::Ld(LD::LoadToR8(R8::C, ByteTarget::Constant(*param1))),
+        0x16 => Instruction::Ld(LD::LoadToR8(R8::D, ByteTarget::Constant(*param1))),
+        0x1E => Instruction::Ld(LD::LoadToR8(R8::E, ByteTarget::Constant(*param1))),
+        0x26 => Instruction::Ld(LD::LoadToR8(R8::H, ByteTarget::Constant(*param1))),
+        0x2E => Instruction::Ld(LD::LoadToR8(R8::L, ByteTarget::Constant(*param1))),
+        0x3E => Instruction::Ld(LD::LoadToR8(R8::A, ByteTarget::Constant(*param1))),
+        0x0A => Instruction::Ld(LD::LoadToA(R16Mem::BC)),
+        0x1A => Instruction::Ld(LD::LoadToA(R16Mem::DE)),
+        0x2A => Instruction::Ld(LD::LoadToA(R16Mem::HLI)),
+        0x3A => Instruction::Ld(LD::LoadToA(R16Mem::HLD)),
+        _ => Instruction::Invalid(*opcode),
     }
 }

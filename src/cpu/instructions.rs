@@ -7,6 +7,7 @@ pub enum Instruction {
     Add(ADD),
     Adc(ADC),
     Ld(LD),
+    Invalid(u8),
 }
 
 pub(crate) trait Executable {
@@ -19,6 +20,7 @@ impl Executable for Instruction {
             Self::Add(instruction) => instruction.execute(cpu),
             Self::Adc(instruction) => instruction.execute(cpu),
             Self::Ld(instruction) => instruction.execute(cpu),
+            Self::Invalid(opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
 }
