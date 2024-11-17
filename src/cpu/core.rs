@@ -88,6 +88,14 @@ impl CPU {
         self.registers.h = ((value & 0xFF00) >> 8) as u8;
         self.registers.l = (value & 0xFF) as u8;
     }
+
+    pub fn read_hl_ptr(&self) -> u8 {
+        self.bus.read_byte(self.read_hl())
+    }
+
+    pub fn write_hl_ptr(&mut self, value: u8) {
+        self.bus.write_byte(self.read_hl(), value);
+    }
 }
 
 #[cfg(test)]

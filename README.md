@@ -14,65 +14,65 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [ ] `0x00`, `NOP`: 1B, 4C, Flags: - - - -
 - [x] `0x01`, `LD BC,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x02`, `LD (BC),A`: 1B, 8C, Flags: - - - -
-- [ ] `0x03`, `INC BC`: 1B, 8C, Flags: - - - -
-- [ ] `0x04`, `INC B`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x05`, `DEC B`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x03`, `INC BC`: 1B, 8C, Flags: - - - -
+- [x] `0x04`, `INC B`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x05`, `DEC B`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x06`, `LD B,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x07`, `RLCA`: 1B, 4C, Flags: 0 0 0 C
 - [x] `0x08`, `LD (a16),SP`: 3B, 20C, Flags: - - - -
 - [x] `0x09`, `ADD HL,BC`: 1B, 8C, Flags: - 0 H C
 - [x] `0x0A`, `LD A,(BC)`: 1B, 8C, Flags: - - - -
-- [ ] `0x0B`, `DEC BC`: 1B, 8C, Flags: - - - -
-- [ ] `0x0C`, `INC C`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x0D`, `DEC C`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x0B`, `DEC BC`: 1B, 8C, Flags: - - - -
+- [x] `0x0C`, `INC C`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x0D`, `DEC C`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x0E`, `LD C,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x0F`, `RRCA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x10`, `STOP n8`: 2B, 4C, Flags: - - - -
 - [x] `0x11`, `LD DE,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x12`, `LD (DE),A`: 1B, 8C, Flags: - - - -
-- [ ] `0x13`, `INC DE`: 1B, 8C, Flags: - - - -
-- [ ] `0x14`, `INC D`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x15`, `DEC D`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x13`, `INC DE`: 1B, 8C, Flags: - - - -
+- [x] `0x14`, `INC D`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x15`, `DEC D`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x16`, `LD D,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x17`, `RLA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x18`, `JR e8`: 2B, 12C, Flags: - - - -
 - [x] `0x19`, `ADD HL,DE`: 1B, 8C, Flags: - 0 H C
 - [x] `0x1A`, `LD A,(DE)`: 1B, 8C, Flags: - - - -
-- [ ] `0x1B`, `DEC DE`: 1B, 8C, Flags: - - - -
-- [ ] `0x1C`, `INC E`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x1D`, `DEC E`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x1B`, `DEC DE`: 1B, 8C, Flags: - - - -
+- [x] `0x1C`, `INC E`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x1D`, `DEC E`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x1E`, `LD E,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x1F`, `RRA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x20`, `JR NZ,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x21`, `LD HL,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x22`, `LD (HL+),A`: 1B, 8C, Flags: - - - -
-- [ ] `0x23`, `INC HL`: 1B, 8C, Flags: - - - -
-- [ ] `0x24`, `INC H`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x25`, `DEC H`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x23`, `INC HL`: 1B, 8C, Flags: - - - -
+- [x] `0x24`, `INC H`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x25`, `DEC H`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x26`, `LD H,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x27`, `DAA`: 1B, 4C, Flags: Z - 0 C
 - [ ] `0x28`, `JR Z,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x29`, `ADD HL,HL`: 1B, 8C, Flags: - 0 H C
 - [x] `0x2A`, `LD A,(HL+)`: 1B, 8C, Flags: - - - -
-- [ ] `0x2B`, `DEC HL`: 1B, 8C, Flags: - - - -
-- [ ] `0x2C`, `INC L`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x2D`, `DEC L`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x2B`, `DEC HL`: 1B, 8C, Flags: - - - -
+- [x] `0x2C`, `INC L`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x2D`, `DEC L`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x2E`, `LD L,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x2F`, `CPL`: 1B, 4C, Flags: - 1 1 -
 - [ ] `0x30`, `JR NC,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x31`, `LD SP,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x32`, `LD (HL-),A`: 1B, 8C, Flags: - - - -
-- [ ] `0x33`, `INC SP`: 1B, 8C, Flags: - - - -
-- [ ] `0x34`, `INC (HL)`: 1B, 12C, Flags: Z 0 H -
-- [ ] `0x35`, `DEC (HL)`: 1B, 12C, Flags: Z 1 H -
+- [x] `0x33`, `INC SP`: 1B, 8C, Flags: - - - -
+- [x] `0x34`, `INC (HL)`: 1B, 12C, Flags: Z 0 H -
+- [x] `0x35`, `DEC (HL)`: 1B, 12C, Flags: Z 1 H -
 - [x] `0x36`, `LD (HL),n8`: 2B, 12C, Flags: - - - -
 - [ ] `0x37`, `SCF`: 1B, 4C, Flags: - 0 0 1
 - [ ] `0x38`, `JR C,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x39`, `ADD HL,SP`: 1B, 8C, Flags: - 0 H C
 - [x] `0x3A`, `LD A,(HL-)`: 1B, 8C, Flags: - - - -
-- [ ] `0x3B`, `DEC SP`: 1B, 8C, Flags: - - - -
-- [ ] `0x3C`, `INC A`: 1B, 4C, Flags: Z 0 H -
-- [ ] `0x3D`, `DEC A`: 1B, 4C, Flags: Z 1 H -
+- [x] `0x3B`, `DEC SP`: 1B, 8C, Flags: - - - -
+- [x] `0x3C`, `INC A`: 1B, 4C, Flags: Z 0 H -
+- [x] `0x3D`, `DEC A`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x3E`, `LD A,n8`: 2B, 8C, Flags: - - - -
 - [ ] `0x3F`, `CCF`: 1B, 4C, Flags: - 0 0 C
 - [x] `0x40`, `LD B,B`: 1B, 4C, Flags: - - - -
@@ -155,54 +155,54 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x8D`, `ADC A,L`: 1B, 4C, Flags: Z 0 H C
 - [x] `0x8E`, `ADC A,(HL)`: 1B, 8C, Flags: Z 0 H C
 - [x] `0x8F`, `ADC A,A`: 1B, 4C, Flags: Z 0 H C
-- [ ] `0x90`, `SUB A,B`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x91`, `SUB A,C`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x92`, `SUB A,D`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x93`, `SUB A,E`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x94`, `SUB A,H`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x95`, `SUB A,L`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x96`, `SUB A,(HL)`: 1B, 8C, Flags: Z 1 H C
-- [ ] `0x97`, `SUB A,A`: 1B, 4C, Flags: 1 1 0 0
-- [ ] `0x98`, `SBC A,B`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x99`, `SBC A,C`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x9A`, `SBC A,D`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x9B`, `SBC A,E`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x9C`, `SBC A,H`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x9D`, `SBC A,L`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0x9E`, `SBC A,(HL)`: 1B, 8C, Flags: Z 1 H C
-- [ ] `0x9F`, `SBC A,A`: 1B, 4C, Flags: Z 1 H -
-- [ ] `0xA0`, `AND A,B`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA1`, `AND A,C`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA2`, `AND A,D`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA3`, `AND A,E`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA4`, `AND A,H`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA5`, `AND A,L`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA6`, `AND A,(HL)`: 1B, 8C, Flags: Z 0 1 0
-- [ ] `0xA7`, `AND A,A`: 1B, 4C, Flags: Z 0 1 0
-- [ ] `0xA8`, `XOR A,B`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xA9`, `XOR A,C`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xAA`, `XOR A,D`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xAB`, `XOR A,E`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xAC`, `XOR A,H`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xAD`, `XOR A,L`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xAE`, `XOR A,(HL)`: 1B, 8C, Flags: Z 0 0 0
-- [ ] `0xAF`, `XOR A,A`: 1B, 4C, Flags: 1 0 0 0
-- [ ] `0xB0`, `OR A,B`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB1`, `OR A,C`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB2`, `OR A,D`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB3`, `OR A,E`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB4`, `OR A,H`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB5`, `OR A,L`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB6`, `OR A,(HL)`: 1B, 8C, Flags: Z 0 0 0
-- [ ] `0xB7`, `OR A,A`: 1B, 4C, Flags: Z 0 0 0
-- [ ] `0xB8`, `CP A,B`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xB9`, `CP A,C`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xBA`, `CP A,D`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xBB`, `CP A,E`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xBC`, `CP A,H`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xBD`, `CP A,L`: 1B, 4C, Flags: Z 1 H C
-- [ ] `0xBE`, `CP A,(HL)`: 1B, 8C, Flags: Z 1 H C
-- [ ] `0xBF`, `CP A,A`: 1B, 4C, Flags: 1 1 0 0
+- [x] `0x90`, `SUB A,B`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x91`, `SUB A,C`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x92`, `SUB A,D`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x93`, `SUB A,E`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x94`, `SUB A,H`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x95`, `SUB A,L`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x96`, `SUB A,(HL)`: 1B, 8C, Flags: Z 1 H C
+- [x] `0x97`, `SUB A,A`: 1B, 4C, Flags: 1 1 0 0
+- [x] `0x98`, `SBC A,B`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x99`, `SBC A,C`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x9A`, `SBC A,D`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x9B`, `SBC A,E`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x9C`, `SBC A,H`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x9D`, `SBC A,L`: 1B, 4C, Flags: Z 1 H C
+- [x] `0x9E`, `SBC A,(HL)`: 1B, 8C, Flags: Z 1 H C
+- [x] `0x9F`, `SBC A,A`: 1B, 4C, Flags: Z 1 H -
+- [x] `0xA0`, `AND A,B`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA1`, `AND A,C`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA2`, `AND A,D`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA3`, `AND A,E`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA4`, `AND A,H`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA5`, `AND A,L`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA6`, `AND A,(HL)`: 1B, 8C, Flags: Z 0 1 0
+- [x] `0xA7`, `AND A,A`: 1B, 4C, Flags: Z 0 1 0
+- [x] `0xA8`, `XOR A,B`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xA9`, `XOR A,C`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xAA`, `XOR A,D`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xAB`, `XOR A,E`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xAC`, `XOR A,H`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xAD`, `XOR A,L`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xAE`, `XOR A,(HL)`: 1B, 8C, Flags: Z 0 0 0
+- [x] `0xAF`, `XOR A,A`: 1B, 4C, Flags: 1 0 0 0
+- [x] `0xB0`, `OR A,B`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB1`, `OR A,C`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB2`, `OR A,D`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB3`, `OR A,E`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB4`, `OR A,H`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB5`, `OR A,L`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB6`, `OR A,(HL)`: 1B, 8C, Flags: Z 0 0 0
+- [x] `0xB7`, `OR A,A`: 1B, 4C, Flags: Z 0 0 0
+- [x] `0xB8`, `CP A,B`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xB9`, `CP A,C`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xBA`, `CP A,D`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xBB`, `CP A,E`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xBC`, `CP A,H`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xBD`, `CP A,L`: 1B, 4C, Flags: Z 1 H C
+- [x] `0xBE`, `CP A,(HL)`: 1B, 8C, Flags: Z 1 H C
+- [x] `0xBF`, `CP A,A`: 1B, 4C, Flags: 1 1 0 0
 - [ ] `0xC0`, `RET NZ`: 1B, 20/8C, Flags: - - - -
 - [ ] `0xC1`, `POP BC`: 1B, 12C, Flags: - - - -
 - [ ] `0xC2`, `JP NZ,a16`: 3B, 16/12C, Flags: - - - -
@@ -224,37 +224,37 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [ ] `0xD2`, `JP NC,a16`: 3B, 16/12C, Flags: - - - -
 - [ ] `0xD4`, `CALL NC,a16`: 3B, 24/12C, Flags: - - - -
 - [ ] `0xD5`, `PUSH DE`: 1B, 16C, Flags: - - - -
-- [ ] `0xD6`, `SUB A,n8`: 2B, 8C, Flags: Z 1 H C
+- [x] `0xD6`, `SUB A,n8`: 2B, 8C, Flags: Z 1 H C
 - [ ] `0xD7`, `RST $10`: 1B, 16C, Flags: - - - -
 - [ ] `0xD8`, `RET C`: 1B, 20/8C, Flags: - - - -
 - [ ] `0xD9`, `RETI`: 1B, 16C, Flags: - - - -
 - [ ] `0xDA`, `JP C,a16`: 3B, 16/12C, Flags: - - - -
 - [ ] `0xDC`, `CALL C,a16`: 3B, 24/12C, Flags: - - - -
-- [ ] `0xDE`, `SBC A,n8`: 2B, 8C, Flags: Z 1 H C
+- [x] `0xDE`, `SBC A,n8`: 2B, 8C, Flags: Z 1 H C
 - [ ] `0xDF`, `RST $18`: 1B, 16C, Flags: - - - -
 - [x] `0xE0`, `LDH (a8),A`: 2B, 12C, Flags: - - - -
 - [ ] `0xE1`, `POP HL`: 1B, 12C, Flags: - - - -
 - [x] `0xE2`, `LD (C),A`: 1B, 8C, Flags: - - - -
 - [ ] `0xE5`, `PUSH HL`: 1B, 16C, Flags: - - - -
-- [ ] `0xE6`, `AND A,n8`: 2B, 8C, Flags: Z 0 1 0
+- [x] `0xE6`, `AND A,n8`: 2B, 8C, Flags: Z 0 1 0
 - [ ] `0xE7`, `RST $20`: 1B, 16C, Flags: - - - -
 - [x] `0xE8`, `ADD SP,e8`: 2B, 16C, Flags: 0 0 H C
 - [ ] `0xE9`, `JP HL`: 1B, 4C, Flags: - - - -
 - [x] `0xEA`, `LD (a16),A`: 3B, 16C, Flags: - - - -
-- [ ] `0xEE`, `XOR A,n8`: 2B, 8C, Flags: Z 0 0 0
+- [x] `0xEE`, `XOR A,n8`: 2B, 8C, Flags: Z 0 0 0
 - [ ] `0xEF`, `RST $28`: 1B, 16C, Flags: - - - -
 - [x] `0xF0`, `LDH A,(a8)`: 2B, 12C, Flags: - - - -
 - [ ] `0xF1`, `POP AF`: 1B, 12C, Flags: Z N H C
 - [x] `0xF2`, `LD A,(C)`: 1B, 8C, Flags: - - - -
 - [ ] `0xF3`, `DI`: 1B, 4C, Flags: - - - -
 - [ ] `0xF5`, `PUSH AF`: 1B, 16C, Flags: - - - -
-- [ ] `0xF6`, `OR A,n8`: 2B, 8C, Flags: Z 0 0 0
+- [x] `0xF6`, `OR A,n8`: 2B, 8C, Flags: Z 0 0 0
 - [ ] `0xF7`, `RST $30`: 1B, 16C, Flags: - - - -
 - [x] `0xF8`, `LD HL,SP+e8`: 2B, 12C, Flags: 0 0 H C
 - [x] `0xF9`, `LD SP,HL`: 1B, 8C, Flags: - - - -
 - [x] `0xFA`, `LD A,(a16)`: 3B, 16C, Flags: - - - -
 - [ ] `0xFB`, `EI`: 1B, 4C, Flags: - - - -
-- [ ] `0xFE`, `CP A,n8`: 2B, 8C, Flags: Z 1 H C
+- [x] `0xFE`, `CP A,n8`: 2B, 8C, Flags: Z 1 H C
 - [ ] `0xEF`, `RST $38`: 1B, 16C, Flags: - - - -
 </details>
 
