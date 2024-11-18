@@ -208,6 +208,17 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
         0x2D => (Instruction::Dec(DEC::R8(R8::L)), 1),
         0x35 => (Instruction::Dec(DEC::HL), 1),
         0x3D => (Instruction::Dec(DEC::R8(R8::A)), 1),
+        0x07 => (Instruction::Rlca(RLCA), 1),
+        0x0F => (Instruction::Rrca(RRCA), 1),
+        0x17 => (Instruction::Rla(RLA), 1),
+        0x1F => (Instruction::Rra(RRA), 1),
+        0x27 => (Instruction::Daa(DAA), 1),
+        0x2F => (Instruction::Cpl(CPL), 1),
+        0x37 => (Instruction::Scf(SCF), 1),
+        0x3F => (Instruction::Ccf(CCF), 1),
+        0x00 => (Instruction::Nop(NOP), 1),
+        0xF3 => (Instruction::Di(DI), 1),
+        0xFB => (Instruction::Ei(EI), 1),
         _ => (Instruction::Invalid(*opcode), 1),
     }
 }

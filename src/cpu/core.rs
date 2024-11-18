@@ -59,6 +59,7 @@ pub(crate) struct Registers {
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: MemoryBus,
+    pub(crate) ime: bool,
 }
 
 impl CPU {

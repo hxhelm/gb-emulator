@@ -11,14 +11,14 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 <details>
 <summary>Core Instructions (0x00-0xFF)</summary>
 
-- [ ] `0x00`, `NOP`: 1B, 4C, Flags: - - - -
+- [x] `0x00`, `NOP`: 1B, 4C, Flags: - - - -
 - [x] `0x01`, `LD BC,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x02`, `LD (BC),A`: 1B, 8C, Flags: - - - -
 - [x] `0x03`, `INC BC`: 1B, 8C, Flags: - - - -
 - [x] `0x04`, `INC B`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x05`, `DEC B`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x06`, `LD B,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x07`, `RLCA`: 1B, 4C, Flags: 0 0 0 C
+- [x] `0x07`, `RLCA`: 1B, 4C, Flags: 0 0 0 C
 - [x] `0x08`, `LD (a16),SP`: 3B, 20C, Flags: - - - -
 - [x] `0x09`, `ADD HL,BC`: 1B, 8C, Flags: - 0 H C
 - [x] `0x0A`, `LD A,(BC)`: 1B, 8C, Flags: - - - -
@@ -26,7 +26,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x0C`, `INC C`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x0D`, `DEC C`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x0E`, `LD C,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x0F`, `RRCA`: 1B, 4C, Flags: 0 0 0 C
+- [x] `0x0F`, `RRCA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x10`, `STOP n8`: 2B, 4C, Flags: - - - -
 - [x] `0x11`, `LD DE,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x12`, `LD (DE),A`: 1B, 8C, Flags: - - - -
@@ -34,7 +34,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x14`, `INC D`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x15`, `DEC D`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x16`, `LD D,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x17`, `RLA`: 1B, 4C, Flags: 0 0 0 C
+- [x] `0x17`, `RLA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x18`, `JR e8`: 2B, 12C, Flags: - - - -
 - [x] `0x19`, `ADD HL,DE`: 1B, 8C, Flags: - 0 H C
 - [x] `0x1A`, `LD A,(DE)`: 1B, 8C, Flags: - - - -
@@ -42,7 +42,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x1C`, `INC E`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x1D`, `DEC E`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x1E`, `LD E,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x1F`, `RRA`: 1B, 4C, Flags: 0 0 0 C
+- [x] `0x1F`, `RRA`: 1B, 4C, Flags: 0 0 0 C
 - [ ] `0x20`, `JR NZ,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x21`, `LD HL,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x22`, `LD (HL+),A`: 1B, 8C, Flags: - - - -
@@ -50,7 +50,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x24`, `INC H`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x25`, `DEC H`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x26`, `LD H,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x27`, `DAA`: 1B, 4C, Flags: Z - 0 C
+- [x] `0x27`, `DAA`: 1B, 4C, Flags: Z - 0 C
 - [ ] `0x28`, `JR Z,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x29`, `ADD HL,HL`: 1B, 8C, Flags: - 0 H C
 - [x] `0x2A`, `LD A,(HL+)`: 1B, 8C, Flags: - - - -
@@ -58,7 +58,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x2C`, `INC L`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x2D`, `DEC L`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x2E`, `LD L,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x2F`, `CPL`: 1B, 4C, Flags: - 1 1 -
+- [x] `0x2F`, `CPL`: 1B, 4C, Flags: - 1 1 -
 - [ ] `0x30`, `JR NC,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x31`, `LD SP,n16`: 3B, 12C, Flags: - - - -
 - [x] `0x32`, `LD (HL-),A`: 1B, 8C, Flags: - - - -
@@ -66,7 +66,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x34`, `INC (HL)`: 1B, 12C, Flags: Z 0 H -
 - [x] `0x35`, `DEC (HL)`: 1B, 12C, Flags: Z 1 H -
 - [x] `0x36`, `LD (HL),n8`: 2B, 12C, Flags: - - - -
-- [ ] `0x37`, `SCF`: 1B, 4C, Flags: - 0 0 1
+- [x] `0x37`, `SCF`: 1B, 4C, Flags: - 0 0 1
 - [ ] `0x38`, `JR C,e8`: 2B, 12/8C, Flags: - - - -
 - [x] `0x39`, `ADD HL,SP`: 1B, 8C, Flags: - 0 H C
 - [x] `0x3A`, `LD A,(HL-)`: 1B, 8C, Flags: - - - -
@@ -74,7 +74,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0x3C`, `INC A`: 1B, 4C, Flags: Z 0 H -
 - [x] `0x3D`, `DEC A`: 1B, 4C, Flags: Z 1 H -
 - [x] `0x3E`, `LD A,n8`: 2B, 8C, Flags: - - - -
-- [ ] `0x3F`, `CCF`: 1B, 4C, Flags: - 0 0 C
+- [x] `0x3F`, `CCF`: 1B, 4C, Flags: - 0 0 C
 - [x] `0x40`, `LD B,B`: 1B, 4C, Flags: - - - -
 - [x] `0x41`, `LD B,C`: 1B, 4C, Flags: - - - -
 - [x] `0x42`, `LD B,D`: 1B, 4C, Flags: - - - -
@@ -246,14 +246,14 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0xF0`, `LDH A,(a8)`: 2B, 12C, Flags: - - - -
 - [ ] `0xF1`, `POP AF`: 1B, 12C, Flags: Z N H C
 - [x] `0xF2`, `LD A,(C)`: 1B, 8C, Flags: - - - -
-- [ ] `0xF3`, `DI`: 1B, 4C, Flags: - - - -
+- [x] `0xF3`, `DI`: 1B, 4C, Flags: - - - -
 - [ ] `0xF5`, `PUSH AF`: 1B, 16C, Flags: - - - -
 - [x] `0xF6`, `OR A,n8`: 2B, 8C, Flags: Z 0 0 0
 - [ ] `0xF7`, `RST $30`: 1B, 16C, Flags: - - - -
 - [x] `0xF8`, `LD HL,SP+e8`: 2B, 12C, Flags: 0 0 H C
 - [x] `0xF9`, `LD SP,HL`: 1B, 8C, Flags: - - - -
 - [x] `0xFA`, `LD A,(a16)`: 3B, 16C, Flags: - - - -
-- [ ] `0xFB`, `EI`: 1B, 4C, Flags: - - - -
+- [x] `0xFB`, `EI`: 1B, 4C, Flags: - - - -
 - [x] `0xFE`, `CP A,n8`: 2B, 8C, Flags: Z 1 H C
 - [ ] `0xEF`, `RST $38`: 1B, 16C, Flags: - - - -
 </details>

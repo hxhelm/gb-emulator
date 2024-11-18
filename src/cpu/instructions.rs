@@ -14,8 +14,19 @@ pub enum Instruction {
     Cp(CP),
     Inc(INC),
     Dec(DEC),
+    Rrca(RRCA),
+    Rra(RRA),
+    Rlca(RLCA),
+    Rla(RLA),
+    Daa(DAA),
+    Cpl(CPL),
+    Scf(SCF),
+    Ccf(CCF),
     Ld(LD),
     Ldh(LDH),
+    Nop(NOP),
+    Di(DI),
+    Ei(EI),
     Invalid(u8),
 }
 
@@ -36,8 +47,19 @@ impl Executable for Instruction {
             Self::Cp(instruction) => instruction.execute(cpu),
             Self::Inc(instruction) => instruction.execute(cpu),
             Self::Dec(instruction) => instruction.execute(cpu),
+            Self::Rrca(instruction) => instruction.execute(cpu),
+            Self::Rra(instruction) => instruction.execute(cpu),
+            Self::Rlca(instruction) => instruction.execute(cpu),
+            Self::Rla(instruction) => instruction.execute(cpu),
+            Self::Daa(instruction) => instruction.execute(cpu),
+            Self::Cpl(instruction) => instruction.execute(cpu),
+            Self::Scf(instruction) => instruction.execute(cpu),
+            Self::Ccf(instruction) => instruction.execute(cpu),
             Self::Ld(instruction) => instruction.execute(cpu),
             Self::Ldh(instruction) => instruction.execute(cpu),
+            Self::Nop(instruction) => instruction.execute(cpu),
+            Self::Di(instruction) => instruction.execute(cpu),
+            Self::Ei(instruction) => instruction.execute(cpu),
             Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
@@ -321,6 +343,130 @@ impl Executable for DEC {
     }
 }
 
+pub(crate) struct RRCA;
+
+impl Executable for RRCA {
+    fn execute(&self, cpu: &mut CPU) {
+        let rotated = cpu.registers.a.rotate_right(1);
+
+        cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
+        cpu.registers.a = rotated;
+    }
+}
+
+pub(crate) struct RLCA;
+
+impl Executable for RLCA {
+    fn execute(&self, cpu: &mut CPU) {
+        let rotated = cpu.registers.a.rotate_left(1);
+
+        cpu.registers.f.carry = cpu.registers.a & 0x80 != 0;
+        cpu.registers.a = rotated;
+    }
+}
+
+pub(crate) struct RRA;
+
+impl Executable for RRA {
+    fn execute(&self, cpu: &mut CPU) {
+        let rotated = if cpu.registers.f.carry {
+            cpu.registers.a.rotate_right(1) | 0x80
+        } else {
+            cpu.registers.a.rotate_right(1) & !0x80
+        };
+
+        cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
+        cpu.registers.a = rotated;
+    }
+}
+
+pub(crate) struct RLA;
+
+impl Executable for RLA {
+    fn execute(&self, cpu: &mut CPU) {
+        let rotated = if cpu.registers.f.carry {
+            cpu.registers.a.rotate_left(1) | 0x01
+        } else {
+            cpu.registers.a.rotate_left(1) & !0x01
+        };
+
+        cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
+        cpu.registers.a = rotated;
+    }
+}
+
+pub(crate) struct DAA;
+
+impl Executable for DAA {
+    fn execute(&self, cpu: &mut CPU) {
+        let a = cpu.registers.a;
+        let mut correction = 0;
+
+        if (a & 0x0F) > 0x09 || cpu.registers.f.half_carry {
+            correction |= 0x06;
+        }
+
+        if (a & 0xF0) > 0x90 || cpu.registers.f.carry {
+            correction |= 0x60;
+        }
+
+        let new_a = if cpu.registers.f.negative {
+            a.wrapping_sub(correction)
+        } else {
+            a.wrapping_add(correction)
+        };
+
+        cpu.registers.f.zero = new_a == 0;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = correction >= 0x60;
+        cpu.registers.a = new_a;
+    }
+}
+
+pub(crate) struct CPL;
+
+impl Executable for CPL {
+    fn execute(&self, cpu: &mut CPU) {
+        cpu.registers.f.negative = true;
+        cpu.registers.f.half_carry = true;
+        cpu.registers.a = !cpu.registers.a;
+    }
+}
+
+pub(crate) struct SCF;
+
+impl Executable for SCF {
+    fn execute(&self, cpu: &mut CPU) {
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = true;
+    }
+}
+
+pub(crate) struct CCF;
+
+impl Executable for CCF {
+    fn execute(&self, cpu: &mut CPU) {
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = !cpu.registers.f.carry;
+    }
+}
+
+pub(crate) enum JP {}
+
+pub(crate) enum JR {}
+
+pub(crate) enum CALL {}
+
+pub(crate) enum RST {}
+
+pub(crate) enum RET {}
+
+pub(crate) enum PUSH {}
+
+pub(crate) enum POP {}
+
 pub(crate) enum LD {
     // LD A,[HLI]
     // LD A,[HLD]
@@ -415,6 +561,36 @@ impl Executable for LDH {
         }
     }
 }
+
+pub(crate) struct NOP;
+
+impl Executable for NOP {
+    fn execute(&self, _cpu: &mut CPU) {}
+}
+
+pub(crate) struct STOP(u8);
+
+pub(crate) struct HALT;
+
+pub(crate) struct DI;
+
+impl Executable for DI {
+    fn execute(&self, cpu: &mut CPU) {
+        cpu.ime = false;
+    }
+}
+
+pub(crate) struct EI;
+
+impl Executable for EI {
+    fn execute(&self, cpu: &mut CPU) {
+        // normally executed after the instruction following EI, have to see whether this will be an
+        // issue later
+        cpu.ime = true;
+    }
+}
+
+pub(crate) struct PREFIX;
 
 fn half_carry_set_u8(a: u8, b: u8) -> bool {
     (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
