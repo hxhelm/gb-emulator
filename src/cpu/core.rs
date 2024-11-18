@@ -16,8 +16,8 @@ const NEGATIVE_FLAG_BYTE_POSITION: u8 = 6;
 const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
 const CARRY_FLAG_BYTE_POSITION: u8 = 4;
 
-impl From<Flags> for u8 {
-    fn from(flags: Flags) -> u8 {
+impl From<&Flags> for u8 {
+    fn from(flags: &Flags) -> u8 {
         (if flags.zero { 1 } else { 0 }) << ZERO_FLAG_BYTE_POSITION
             | (if flags.negative { 1 } else { 0 }) << NEGATIVE_FLAG_BYTE_POSITION
             | (if flags.half_carry { 1 } else { 0 }) << HALF_CARRY_FLAG_BYTE_POSITION
@@ -63,13 +63,17 @@ pub struct CPU {
 }
 
 impl CPU {
+    pub fn read_af(&self) -> u16 {
+        let flags: u8 = u8::from(&self.registers.f);
+        (self.registers.a as u16) << 8 | flags as u16
+    }
+
     pub fn read_bc(&self) -> u16 {
         (self.registers.b as u16) << 8 | self.registers.c as u16
     }
 
     pub fn write_bc(&mut self, value: u16) {
-        self.registers.b = ((value & 0xFF00) >> 8) as u8;
-        self.registers.c = (value & 0xFF) as u8;
+        [self.registers.b, self.registers.c] = value.to_be_bytes();
     }
 
     pub fn read_de(&self) -> u16 {
@@ -77,8 +81,7 @@ impl CPU {
     }
 
     pub fn write_de(&mut self, value: u16) {
-        self.registers.d = ((value & 0xFF00) >> 8) as u8;
-        self.registers.e = (value & 0xFF) as u8;
+        [self.registers.d, self.registers.e] = value.to_be_bytes();
     }
 
     pub fn read_hl(&self) -> u16 {
@@ -86,8 +89,7 @@ impl CPU {
     }
 
     pub fn write_hl(&mut self, value: u16) {
-        self.registers.h = ((value & 0xFF00) >> 8) as u8;
-        self.registers.l = (value & 0xFF) as u8;
+        [self.registers.h, self.registers.l] = value.to_be_bytes();
     }
 
     pub fn read_hl_ptr(&self) -> u8 {

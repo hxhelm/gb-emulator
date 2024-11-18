@@ -37,6 +37,19 @@ impl MemoryBus {
         let address = 0xFF00 + offset as u16;
         self.write_byte(address, byte)
     }
+
+    pub fn write_word(&mut self, address: u16, word: u16) {
+        let [lsb, msb] = word.to_le_bytes();
+        self.memory[address as usize] = lsb;
+        self.memory[(address + 1) as usize] = msb;
+    }
+
+    pub fn read_word(&mut self, address: u16) -> u16 {
+        let lsb = self.memory[address as usize];
+        let msb = self.memory[(address + 1) as usize];
+
+        u16::from_le_bytes([lsb, msb])
+    }
 }
 
 const FETCH_BYTE_COUNT: usize = 3;
@@ -47,6 +60,17 @@ pub(crate) struct InstructionData {
 }
 
 impl CPU {
+    pub(crate) fn push_to_stack(&mut self, value: u16) {
+        self.registers.sp -= 2;
+        self.bus.write_word(self.registers.sp, value);
+    }
+
+    pub(crate) fn pop_from_stack(&mut self) -> u16 {
+        let result = self.bus.read_word(self.registers.sp);
+        self.registers.sp += 2;
+        result
+    }
+
     // TODO: handle out of bound fetch
     fn fetch(&self) -> InstructionData {
         let start = self.registers.pc as usize;

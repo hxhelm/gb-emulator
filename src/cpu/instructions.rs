@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use super::registers::*;
+use super::{registers::*, Flags};
 use crate::cpu::CPU;
 
 pub enum Instruction {
@@ -453,19 +453,124 @@ impl Executable for CCF {
     }
 }
 
-pub(crate) enum JP {}
+pub(crate) enum FlagCondition {
+    Zero,
+    NotZero,
+    Carry,
+    NotCarry,
+}
 
-pub(crate) enum JR {}
+impl FlagCondition {
+    fn is_true(&self, cpu: &CPU) -> bool {
+        match self {
+            Self::Zero => cpu.registers.f.zero,
+            Self::NotZero => !cpu.registers.f.zero,
+            Self::Carry => cpu.registers.f.carry,
+            Self::NotCarry => !cpu.registers.f.carry,
+        }
+    }
+}
 
-pub(crate) enum CALL {}
+pub(crate) enum JP {
+    Constant(u16),
+    ConditionalConstant(FlagCondition, u16),
+    HLAddress,
+}
+
+impl Executable for JP {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            JP::Constant(address) => cpu.registers.pc = *address,
+            JP::ConditionalConstant(condition, address) => {
+                if condition.is_true(cpu) {
+                    cpu.registers.pc = *address;
+                }
+            }
+            JP::HLAddress => cpu.registers.pc = cpu.read_hl(),
+        }
+    }
+}
+
+pub(crate) enum JR {
+    Offset(u8),
+    ConditionalOffset(FlagCondition, u8),
+}
+
+impl Executable for JR {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            JR::Offset(address) => {
+                cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(*address as i16)
+            }
+            JR::ConditionalOffset(condition, address) => {
+                if condition.is_true(cpu) {
+                    cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(*address as i16);
+                }
+            }
+        }
+    }
+}
+
+pub(crate) enum CALL {
+    Constant(u16),
+    ConditionalConstant(FlagCondition, u16),
+}
+
+impl Executable for CALL {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            CALL::Constant(address) => {
+                cpu.push_to_stack(*address);
+                cpu.registers.pc = *address;
+            }
+            CALL::ConditionalConstant(condition, address) => {
+                if condition.is_true(cpu) {
+                    cpu.push_to_stack(*address);
+                    cpu.registers.pc = *address;
+                }
+            }
+        }
+    }
+}
 
 pub(crate) enum RST {}
 
 pub(crate) enum RET {}
 
-pub(crate) enum PUSH {}
+pub(crate) enum PUSH {
+    AF,
+    R16(R16),
+}
 
-pub(crate) enum POP {}
+impl Executable for PUSH {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            PUSH::AF => cpu.push_to_stack(cpu.read_af()),
+            PUSH::R16(register) => cpu.push_to_stack(cpu.read_r16(register)),
+        }
+    }
+}
+
+pub(crate) enum POP {
+    AF,
+    R16(R16),
+}
+
+impl Executable for POP {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            POP::AF => {
+                let [a, f] = cpu.pop_from_stack().to_be_bytes();
+                cpu.registers.a = a;
+                cpu.registers.f = Flags::from(f);
+            }
+            POP::R16(register) => {
+                let value = cpu.pop_from_stack();
+                cpu.write_r16(register, value);
+            }
+        }
+    }
+}
 
 pub(crate) enum LD {
     // LD A,[HLI]
@@ -529,11 +634,7 @@ impl Executable for LD {
             LD::StoreADirectly(address) => cpu.bus.write_byte(*address, cpu.registers.a),
             LD::StoreHLRegister(register) => cpu.write_hl_ptr(cpu.read_r8(register)),
             LD::StoreHLConstant(value) => cpu.write_hl_ptr(*value),
-            LD::StoreSP(value) => {
-                let sp = cpu.registers.sp;
-                cpu.bus.write_byte(*value, (sp & 0xFF) as u8);
-                cpu.bus.write_byte(*value + 1, (sp >> 8) as u8)
-            }
+            LD::StoreSP(value) => cpu.bus.write_word(*value, cpu.registers.sp),
         };
     }
 }
