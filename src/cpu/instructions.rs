@@ -32,6 +32,8 @@ pub enum Instruction {
     Call(CALL),
     Push(PUSH),
     Pop(POP),
+    Rst(RST),
+    Ret(RET),
     Invalid(u8),
 }
 
@@ -70,6 +72,8 @@ impl Executable for Instruction {
             Self::Call(instruction) => instruction.execute(cpu),
             Self::Push(instruction) => instruction.execute(cpu),
             Self::Pop(instruction) => instruction.execute(cpu),
+            Self::Rst(instruction) => instruction.execute(cpu),
+            Self::Ret(instruction) => instruction.execute(cpu),
             Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
@@ -529,23 +533,56 @@ pub(crate) enum CALL {
 impl Executable for CALL {
     fn execute(&self, cpu: &mut CPU) {
         match self {
-            CALL::Constant(address) => {
-                cpu.push_to_stack(*address);
-                cpu.registers.pc = *address;
-            }
+            CALL::Constant(address) => cpu.call_address(*address),
             CALL::ConditionalConstant(condition, address) => {
                 if condition.is_true(cpu) {
-                    cpu.push_to_stack(*address);
-                    cpu.registers.pc = *address;
+                    cpu.call_address(*address);
                 }
             }
         }
     }
 }
 
-pub(crate) enum RST {}
+#[derive(Copy, Clone)]
+pub(crate) enum RST {
+    V0 = 0x00,
+    V8 = 0x08,
+    V10 = 0x10,
+    V18 = 0x18,
+    V20 = 0x20,
+    V28 = 0x28,
+    V30 = 0x30,
+    V38 = 0x38,
+}
 
-pub(crate) enum RET {}
+impl Executable for RST {
+    fn execute(&self, cpu: &mut CPU) {
+        cpu.call_address(*self as u16);
+    }
+}
+
+pub(crate) enum RET {
+    RET,
+    Conditional(FlagCondition),
+    EI,
+}
+
+impl Executable for RET {
+    fn execute(&self, cpu: &mut CPU) {
+        match self {
+            RET::RET => cpu.registers.pc = cpu.pop_from_stack(),
+            RET::Conditional(condition) => {
+                if condition.is_true(cpu) {
+                    cpu.registers.pc = cpu.pop_from_stack();
+                }
+            }
+            RET::EI => {
+                cpu.registers.pc = cpu.pop_from_stack();
+                cpu.ime = true;
+            }
+        }
+    }
+}
 
 pub(crate) enum PUSH {
     AF,
@@ -681,7 +718,19 @@ impl Executable for NOP {
 
 pub(crate) struct STOP(u8);
 
+impl Executable for STOP {
+    fn execute(&self, _cpu: &mut CPU) {
+        todo!();
+    }
+}
+
 pub(crate) struct HALT;
+
+impl Executable for HALT {
+    fn execute(&self, _cpu: &mut CPU) {
+        todo!();
+    }
+}
 
 pub(crate) struct DI;
 
@@ -702,6 +751,12 @@ impl Executable for EI {
 }
 
 pub(crate) struct PREFIX;
+
+impl Executable for PREFIX {
+    fn execute(&self, _cpu: &mut CPU) {
+        todo!();
+    }
+}
 
 fn half_carry_set_u8(a: u8, b: u8) -> bool {
     (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10

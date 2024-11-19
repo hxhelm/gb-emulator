@@ -99,6 +99,11 @@ impl CPU {
     pub fn write_hl_ptr(&mut self, value: u8) {
         self.bus.write_byte(self.read_hl(), value);
     }
+
+    pub fn call_address(&mut self, address: u16) {
+        self.push_to_stack(self.registers.pc);
+        self.registers.pc = address;
+    }
 }
 
 #[cfg(test)]
