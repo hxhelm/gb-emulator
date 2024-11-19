@@ -10,9 +10,7 @@ use super::{
 pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
     let InstructionData { opcode, param1, param2 } = data;
 
-    // unnecessary computation 95% of the time, maybe pass two u8s instead and provide
-    // helper function for computation?
-    let a16 = (*param1 as u16) << 8 | (*param2 as u16);
+    let get_a16 = || (*param1 as u16) << 8 | (*param2 as u16);
 
     match opcode {
         0x06 => (Instruction::Ld(LD::LoadToR8(R8::B, ByteTarget::Constant(*param1))), 2),
@@ -94,15 +92,15 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
         0x1A => (Instruction::Ld(LD::LoadToA(R16Mem::DE)), 1),
         0x2A => (Instruction::Ld(LD::LoadToA(R16Mem::HLI)), 1),
         0x3A => (Instruction::Ld(LD::LoadToA(R16Mem::HLD)), 1),
-        0x01 => (Instruction::Ld(LD::LoadToR16(R16::BC, a16)), 3),
-        0x11 => (Instruction::Ld(LD::LoadToR16(R16::DE, a16)), 3),
-        0x21 => (Instruction::Ld(LD::LoadToR16(R16::HL, a16)), 3),
-        0x31 => (Instruction::Ld(LD::LoadToSP(a16)), 3),
-        0x08 => (Instruction::Ld(LD::StoreSP(a16)), 3),
+        0x01 => (Instruction::Ld(LD::LoadToR16(R16::BC, get_a16())), 3),
+        0x11 => (Instruction::Ld(LD::LoadToR16(R16::DE, get_a16())), 3),
+        0x21 => (Instruction::Ld(LD::LoadToR16(R16::HL, get_a16())), 3),
+        0x31 => (Instruction::Ld(LD::LoadToSP(get_a16())), 3),
+        0x08 => (Instruction::Ld(LD::StoreSP(get_a16())), 3),
         0xF8 => (Instruction::Ld(LD::LoadSPToHL((*param1) as i8)), 2),
         0xF9 => (Instruction::Ld(LD::LoadHLToSP), 1),
-        0xEA => (Instruction::Ld(LD::StoreADirectly(a16)), 3),
-        0xFA => (Instruction::Ld(LD::LoadToADirectly(a16)), 3),
+        0xEA => (Instruction::Ld(LD::StoreADirectly(get_a16())), 3),
+        0xFA => (Instruction::Ld(LD::LoadToADirectly(get_a16())), 3),
         0xE0 => (Instruction::Ldh(LDH::StoreConstant(*param1)), 2),
         0xF0 => (Instruction::Ldh(LDH::LoadConstant(*param1)), 2),
         0xE2 => (Instruction::Ldh(LDH::StoreOffset), 1),
@@ -219,6 +217,30 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
         0x00 => (Instruction::Nop(NOP), 1),
         0xF3 => (Instruction::Di(DI), 1),
         0xFB => (Instruction::Ei(EI), 1),
+        0xC2 => (Instruction::Jp(JP::ConditionalConstant(FlagCondition::NotZero, get_a16())), 3),
+        0xCA => (Instruction::Jp(JP::ConditionalConstant(FlagCondition::Zero, get_a16())), 3),
+        0xD2 => (Instruction::Jp(JP::ConditionalConstant(FlagCondition::NotCarry, get_a16())), 3),
+        0xDA => (Instruction::Jp(JP::ConditionalConstant(FlagCondition::Carry, get_a16())), 3),
+        0xC3 => (Instruction::Jp(JP::Constant(get_a16())), 3),
+        0xE9 => (Instruction::Jp(JP::HLAddress), 1),
+        0x20 => (Instruction::Jr(JR::ConditionalOffset(FlagCondition::NotZero, *param1)), 2),
+        0x28 => (Instruction::Jr(JR::ConditionalOffset(FlagCondition::Zero, *param1)), 2),
+        0x30 => (Instruction::Jr(JR::ConditionalOffset(FlagCondition::NotCarry, *param1)), 2),
+        0x38 => (Instruction::Jr(JR::ConditionalOffset(FlagCondition::Carry, *param1)), 2),
+        0x18 => (Instruction::Jr(JR::Offset(*param1)), 2),
+        0xC4 => (Instruction::Call(CALL::ConditionalConstant(FlagCondition::NotZero, get_a16())), 3),
+        0xCC => (Instruction::Call(CALL::ConditionalConstant(FlagCondition::Zero, get_a16())), 3),
+        0xD4 => (Instruction::Call(CALL::ConditionalConstant(FlagCondition::NotCarry, get_a16())), 3),
+        0xDC => (Instruction::Call(CALL::ConditionalConstant(FlagCondition::Carry, get_a16())), 3),
+        0xCD => (Instruction::Call(CALL::Constant(get_a16())), 3),
+        0xC5 => (Instruction::Push(PUSH::R16(R16::BC)), 1),
+        0xD5 => (Instruction::Push(PUSH::R16(R16::DE)), 1),
+        0xE5 => (Instruction::Push(PUSH::R16(R16::HL)), 1),
+        0xF5 => (Instruction::Push(PUSH::AF), 1),
+        0xC1 => (Instruction::Pop(POP::R16(R16::BC)), 1),
+        0xD1 => (Instruction::Pop(POP::R16(R16::DE)), 1),
+        0xE1 => (Instruction::Pop(POP::R16(R16::HL)), 1),
+        0xF1 => (Instruction::Pop(POP::AF), 1),
         _ => (Instruction::Invalid(*opcode), 1),
     }
 }

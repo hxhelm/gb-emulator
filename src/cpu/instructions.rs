@@ -27,6 +27,11 @@ pub enum Instruction {
     Nop(NOP),
     Di(DI),
     Ei(EI),
+    Jp(JP),
+    Jr(JR),
+    Call(CALL),
+    Push(PUSH),
+    Pop(POP),
     Invalid(u8),
 }
 
@@ -60,6 +65,11 @@ impl Executable for Instruction {
             Self::Nop(instruction) => instruction.execute(cpu),
             Self::Di(instruction) => instruction.execute(cpu),
             Self::Ei(instruction) => instruction.execute(cpu),
+            Self::Jp(instruction) => instruction.execute(cpu),
+            Self::Jr(instruction) => instruction.execute(cpu),
+            Self::Call(instruction) => instruction.execute(cpu),
+            Self::Push(instruction) => instruction.execute(cpu),
+            Self::Pop(instruction) => instruction.execute(cpu),
             Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
