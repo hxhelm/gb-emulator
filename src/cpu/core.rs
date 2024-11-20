@@ -1,7 +1,11 @@
 #![allow(dead_code)]
 
+use super::instructions::Executable;
 use super::memory::*;
+use super::opcodes::get_instruction;
 use std::convert::From;
+use std::thread::sleep;
+use std::time;
 
 #[derive(Default)]
 pub(crate) struct Flags {
@@ -60,6 +64,7 @@ pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: MemoryBus,
     pub(crate) ime: bool,
+    pub(crate) is_halted: bool,
 }
 
 impl CPU {
@@ -103,6 +108,38 @@ impl CPU {
     pub fn call_address(&mut self, address: u16) {
         self.push_to_stack(self.registers.pc);
         self.registers.pc = address;
+    }
+
+    fn step(&mut self) {
+        let instruction_data = self.fetch();
+
+        let (instruction, bytes) = get_instruction(&instruction_data);
+        let pre_instruction_pc = self.registers.pc;
+
+        println!(
+            "Read opcode {:02X}, len: {}B, PC: {:04X}",
+            instruction_data.opcode, bytes, pre_instruction_pc
+        );
+
+        instruction.execute(self);
+
+        if self.registers.pc == pre_instruction_pc {
+            self.registers.pc += bytes;
+        }
+
+        sleep(time::Duration::from_millis(100))
+    }
+
+    pub fn boot(&mut self, boot_rom: &[u8]) {
+        let mut i = 0;
+        for byte in boot_rom {
+            self.bus.memory[i] = *byte;
+            i += 1;
+        }
+
+        while !self.is_halted {
+            self.step();
+        }
     }
 }
 

@@ -1,7 +1,9 @@
 #![allow(dead_code)]
 
-use super::{registers::*, Flags};
 use crate::cpu::CPU;
+use crate::cpu::{registers::*, Flags};
+
+use super::prefixed::*;
 
 pub enum Instruction {
     Add(ADD),
@@ -34,6 +36,17 @@ pub enum Instruction {
     Pop(POP),
     Rst(RST),
     Ret(RET),
+    Rlc(RLC),
+    Rrc(RRC),
+    Rl(RL),
+    Rr(RR),
+    Sla(SLA),
+    Sra(SRA),
+    Swap(SWAP),
+    Srl(SRL),
+    Bit(BIT),
+    Res(RES),
+    Set(SET),
     Invalid(u8),
 }
 
@@ -74,6 +87,17 @@ impl Executable for Instruction {
             Self::Pop(instruction) => instruction.execute(cpu),
             Self::Rst(instruction) => instruction.execute(cpu),
             Self::Ret(instruction) => instruction.execute(cpu),
+            Self::Rlc(instruction) => instruction.execute(cpu),
+            Self::Rrc(instruction) => instruction.execute(cpu),
+            Self::Rl(instruction) => instruction.execute(cpu),
+            Self::Rr(instruction) => instruction.execute(cpu),
+            Self::Sla(instruction) => instruction.execute(cpu),
+            Self::Sra(instruction) => instruction.execute(cpu),
+            Self::Swap(instruction) => instruction.execute(cpu),
+            Self::Srl(instruction) => instruction.execute(cpu),
+            Self::Bit(instruction) => instruction.execute(cpu),
+            Self::Res(instruction) => instruction.execute(cpu),
+            Self::Set(instruction) => instruction.execute(cpu),
             Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
         }
     }
@@ -82,18 +106,15 @@ impl Executable for Instruction {
 pub(crate) enum ByteTarget {
     Constant(u8),
     Register8(R8),
-    /// ADD A,[HL] -> Read the byte from the 16-Bit address stored in the HL register
     HLAddress,
 }
 
 pub(crate) enum WordTarget {
-    /// ADD HL,R16: Adds any 16 bit register to the HL register
     Register16(R16),
     SP,
 }
 
 impl CPU {
-    /// Common access
     fn read_bytetarget(&self, target: &ByteTarget) -> u8 {
         match target {
             ByteTarget::Constant(value) => *value,
@@ -363,6 +384,9 @@ impl Executable for RRCA {
     fn execute(&self, cpu: &mut CPU) {
         let rotated = cpu.registers.a.rotate_right(1);
 
+        cpu.registers.f.zero = false;
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
         cpu.registers.a = rotated;
     }
@@ -374,6 +398,9 @@ impl Executable for RLCA {
     fn execute(&self, cpu: &mut CPU) {
         let rotated = cpu.registers.a.rotate_left(1);
 
+        cpu.registers.f.zero = false;
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x80 != 0;
         cpu.registers.a = rotated;
     }
@@ -389,6 +416,9 @@ impl Executable for RRA {
             cpu.registers.a.rotate_right(1) & !0x80
         };
 
+        cpu.registers.f.zero = false;
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
         cpu.registers.a = rotated;
     }
@@ -404,7 +434,10 @@ impl Executable for RLA {
             cpu.registers.a.rotate_left(1) & !0x01
         };
 
-        cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
+        cpu.registers.f.zero = false;
+        cpu.registers.f.negative = false;
+        cpu.registers.f.half_carry = false;
+        cpu.registers.f.carry = cpu.registers.a & 0x80 != 0;
         cpu.registers.a = rotated;
     }
 }
@@ -620,35 +653,17 @@ impl Executable for POP {
 }
 
 pub(crate) enum LD {
-    // LD A,[HLI]
-    // LD A,[HLD]
-    // LD A,[r16]
     LoadToA(R16Mem),
-    // LD A,[n16]
     LoadToADirectly(u16),
-    // LD r8,r8
-    // LD r8,n8
-    // LD r8,[HL]
     LoadToR8(R8, ByteTarget),
-    // LD r16,n16
     LoadToR16(R16, u16),
-    // LD SP,n16
     LoadToSP(u16),
-    // LD SP,HL
     LoadHLToSP,
-    // LD HL,SP+e8
     LoadSPToHL(i8),
-    // LD [r16],A
-    // LD [HLI],A
-    // LD [HLD],A
     StoreA(R16Mem),
-    // LD [n16],A
     StoreADirectly(u16),
-    // LD [HL],r8
     StoreHLRegister(R8),
-    // LD [HL],n8
     StoreHLConstant(u8),
-    // LD [n16],SP
     StoreSP(u16),
 }
 
@@ -687,13 +702,9 @@ impl Executable for LD {
 }
 
 pub(crate) enum LDH {
-    // LDH A,[n8]
     LoadConstant(u8),
-    // LDH A,[C]
     LoadOffset,
-    // LDH [n8],A
     StoreConstant(u8),
-    // LDH [C],A
     StoreOffset,
 }
 
@@ -747,14 +758,6 @@ impl Executable for EI {
         // normally executed after the instruction following EI, have to see whether this will be an
         // issue later
         cpu.ime = true;
-    }
-}
-
-pub(crate) struct PREFIX;
-
-impl Executable for PREFIX {
-    fn execute(&self, _cpu: &mut CPU) {
-        todo!();
     }
 }
 

@@ -1,14 +1,12 @@
 #![allow(dead_code)]
 
-use super::instructions::Executable;
-use super::opcodes::get_instruction;
 use super::CPU;
 use std::usize;
 
 const MEMORY_BUS_SIZE: usize = 0xFFFF;
 
 pub(crate) struct MemoryBus {
-    memory: [u8; MEMORY_BUS_SIZE],
+    pub(crate) memory: [u8; MEMORY_BUS_SIZE],
 }
 
 impl Default for MemoryBus {
@@ -61,18 +59,18 @@ pub(crate) struct InstructionData {
 
 impl CPU {
     pub(crate) fn push_to_stack(&mut self, value: u16) {
-        self.registers.sp -= 2;
+        self.registers.sp = self.registers.sp.wrapping_sub(2);
         self.bus.write_word(self.registers.sp, value);
     }
 
     pub(crate) fn pop_from_stack(&mut self) -> u16 {
         let result = self.bus.read_word(self.registers.sp);
-        self.registers.sp += 2;
+        self.registers.sp = self.registers.sp.wrapping_add(2);
         result
     }
 
     // TODO: handle out of bound fetch
-    fn fetch(&self) -> InstructionData {
+    pub(crate) fn fetch(&self) -> InstructionData {
         let start = self.registers.pc as usize;
         let end = start + FETCH_BYTE_COUNT;
 
@@ -88,15 +86,5 @@ impl CPU {
             param1: *param1,
             param2: *param2,
         }
-    }
-
-    fn step(&mut self) {
-        let instruction_data = self.fetch();
-
-        let (instruction, bytes) = get_instruction(&instruction_data);
-
-        self.registers.pc += bytes;
-
-        instruction.execute(self);
     }
 }
