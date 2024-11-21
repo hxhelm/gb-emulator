@@ -127,7 +127,7 @@ impl CPU {
 pub(crate) enum ADD {
     Byte(ByteTarget),
     Word(WordTarget),
-    StackPointer(i8),
+    StackPointer(u8),
 }
 
 impl Executable for ADD {
@@ -158,15 +158,17 @@ impl Executable for ADD {
                 cpu.write_hl(result);
             }
             ADD::StackPointer(offset) => {
-                let (result, did_overflow) =
-                    cpu.registers.sp.overflowing_add_signed((*offset).into());
+                let (result, did_overflow) = cpu
+                    .registers
+                    .sp
+                    .overflowing_add_signed((*offset as i8).into());
 
                 cpu.registers.f.zero = false;
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
 
-                let sp_i8 = ((cpu.registers.sp & 0xFF00) >> 8) as i8;
-                cpu.registers.f.half_carry = half_carry_set_i8(sp_i8, *offset);
+                let sp_u8 = ((cpu.registers.sp & 0xFF00) >> 8) as u8;
+                cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
 
                 cpu.registers.sp = result;
             }
@@ -547,11 +549,17 @@ impl Executable for JR {
     fn execute(&self, cpu: &mut CPU) {
         match self {
             JR::Offset(address) => {
-                cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(*address as i16)
+                cpu.registers.pc = cpu
+                    .registers
+                    .pc
+                    .wrapping_add_signed(i16::from(*address as i8))
             }
             JR::ConditionalOffset(condition, address) => {
                 if condition.is_true(cpu) {
-                    cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(*address as i16);
+                    cpu.registers.pc = cpu
+                        .registers
+                        .pc
+                        .wrapping_add_signed(i16::from(*address as i8));
                 }
             }
         }
@@ -659,7 +667,7 @@ pub(crate) enum LD {
     LoadToR16(R16, u16),
     LoadToSP(u16),
     LoadHLToSP,
-    LoadSPToHL(i8),
+    LoadSPToHL(u8),
     StoreA(R16Mem),
     StoreADirectly(u16),
     StoreHLRegister(R8),
@@ -684,11 +692,14 @@ impl Executable for LD {
             LD::LoadToSP(value) => cpu.registers.sp = *value,
             LD::LoadHLToSP => cpu.registers.sp = cpu.read_hl(),
             LD::LoadSPToHL(offset) => {
-                let (sp, did_overflow) = cpu.registers.sp.overflowing_add_signed((*offset).into());
+                let (sp, did_overflow) = cpu
+                    .registers
+                    .sp
+                    .overflowing_add_signed((*offset as i8).into());
 
                 cpu.registers.f.carry = did_overflow;
-                let sp_i8 = ((cpu.registers.sp & 0xFF00) >> 8) as i8;
-                cpu.registers.f.half_carry = half_carry_set_i8(sp_i8, *offset);
+                let sp_u8 = ((cpu.registers.sp & 0xFF00) >> 8) as u8;
+                cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
 
                 cpu.write_hl(sp);
             }
@@ -762,10 +773,6 @@ impl Executable for EI {
 }
 
 fn half_carry_set_u8(a: u8, b: u8) -> bool {
-    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
-}
-
-fn half_carry_set_i8(a: i8, b: i8) -> bool {
     (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
 }
 
