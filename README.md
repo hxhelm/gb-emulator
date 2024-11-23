@@ -214,7 +214,7 @@ This is a WIP without a concrete idea in mind, just learning as I go.
 - [x] `0xC8`, `RET Z`: 1B, 20/8C, Flags: - - - -
 - [x] `0xC9`, `RET`: 1B, 16C, Flags: - - - -
 - [x] `0xCA`, `JP Z,a16`: 3B, 16/12C, Flags: - - - -
-- [ ] `0xCB`, `PREFIX CB`: 1B, 4C, Flags: - - - -
+- [x] `0xCB`, `PREFIX CB`: 1B, 4C, Flags: - - - -
 - [x] `0xCC`, `CALL Z,a16`: 3B, 24/12C, Flags: - - - -
 - [x] `0xCD`, `CALL a16`: 3B, 24C, Flags: - - - -
 - [x] `0xCE`, `ADC A,n8`: 2B, 8C, Flags: Z 0 H C

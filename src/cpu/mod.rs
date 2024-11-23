@@ -1,6 +1,6 @@
 mod core;
 mod instructions;
-mod memory;
+pub(crate) mod memory;
 mod opcodes;
 mod registers;
 

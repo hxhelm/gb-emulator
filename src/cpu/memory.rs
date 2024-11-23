@@ -3,7 +3,7 @@
 use super::CPU;
 use std::usize;
 
-const MEMORY_BUS_SIZE: usize = 0xFFFF;
+pub(crate) const MEMORY_BUS_SIZE: usize = 0xFFFF;
 
 pub(crate) struct MemoryBus {
     pub(crate) memory: [u8; MEMORY_BUS_SIZE],
