@@ -114,13 +114,10 @@ impl CPU {
         self.current_opcode = instruction_data.opcode;
 
         let (instruction, bytes) = get_instruction(&instruction_data);
-        let pre_instruction_pc = self.registers.pc;
 
         instruction.execute(self);
 
-        if self.registers.pc == pre_instruction_pc {
-            self.registers.pc += bytes;
-        }
+        self.registers.pc += bytes;
     }
 
     pub fn boot_rom(&mut self, boot_rom: &[u8]) {

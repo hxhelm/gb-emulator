@@ -256,7 +256,7 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
         0xD8 => (Instruction::Ret(RET::Conditional(FlagCondition::Carry)), 1),
         0xC9 => (Instruction::Ret(RET::RET), 1),
         0xD9 => (Instruction::Ret(RET::EI), 1),
-        0xCB => match_prefix(opcode),
+        0xCB => match_prefix(*param1),
         _ => (Instruction::Invalid(opcode), 1),
     }
 }
@@ -521,5 +521,5 @@ fn match_prefix(opcode: u8) -> (Instruction, u16) {
         0xFF => Instruction::Set(SET::Register8(U3::B7, R8::A)),
     };
 
-    (instruction, 3) // each instruction has two, the prefix takes one itself
+    (instruction, 2) // each instruction has two, the prefix takes one itself
 }
