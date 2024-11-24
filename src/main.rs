@@ -13,6 +13,12 @@ use ratatui::{
 use std::env;
 use std::fs;
 use std::time;
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    sync::{Arc, Mutex},
+    thread,
+    time::Duration,
+};
 
 mod cpu;
 
@@ -123,47 +129,128 @@ fn register_view(cpu: &CPU) -> [String; 7] {
 }
 
 fn main() {
+    color_eyre::install().unwrap();
+
     let args: Vec<String> = env::args().collect();
     let bin_path = args.get(1).expect("First argument <BINARY_PATH> required.");
     let contents = fs::read(bin_path).expect("Failed to read binary path.");
-    let mut cpu = CPU::default();
 
-    cpu.boot_rom(contents.as_slice());
+    let cpu_init = {
+        let mut cpu = CPU::default();
 
-    let mut terminal = ratatui::init();
-    let mut app = App::new();
+        cpu.boot_rom(contents.as_slice());
 
-    loop {
-        terminal
-            .draw(|frame| app.draw(frame, &cpu))
-            .expect("failed to draw frame");
+        cpu
+    };
+    let cpu = Arc::new(Mutex::new(cpu_init));
+    let cpu_snapshot = Arc::new(Mutex::new(cpu_init.clone()));
 
-        if event::poll(time::Duration::from_millis(5)).expect("Failed to poll events") {
-            if let Event::Key(key) = event::read().expect("Failed to read event") {
-                match key.code {
-                    KeyCode::Char('q') => break,
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        app.memory_vertical_scroll = app.memory_vertical_scroll.saturating_add(1);
-                        app.memory_vertical_scroll_state = app
-                            .memory_vertical_scroll_state
-                            .position(app.memory_vertical_scroll);
+    let paused = Arc::new(AtomicBool::new(true));
+    let terminate = Arc::new(AtomicBool::new(false));
+
+    let cpu_thread = {
+        let cpu_clone = Arc::clone(&cpu);
+        let paused_clone = Arc::clone(&paused);
+        let terminate_clone = Arc::clone(&terminate);
+
+        thread::spawn(move || {
+            while !terminate_clone.load(Ordering::Relaxed) {
+                if !paused_clone.load(Ordering::Relaxed) {
+                    let mut cpu = cpu_clone.lock().unwrap();
+
+                    if !cpu.is_halted {
+                        cpu.step();
                     }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.memory_vertical_scroll = app.memory_vertical_scroll.saturating_sub(1);
-                        app.memory_vertical_scroll_state = app
-                            .memory_vertical_scroll_state
-                            .position(app.memory_vertical_scroll);
-                    }
-                    KeyCode::Char('n') => {
-                        if !cpu.is_halted {
-                            cpu.step();
+                }
+
+                thread::sleep(Duration::from_nanos(10));
+            }
+        })
+    };
+
+    let snapshot_thread = {
+        let terminate_clone = Arc::clone(&terminate);
+        let cpu_clone = Arc::clone(&cpu);
+        let snapshot_clone = Arc::clone(&cpu_snapshot);
+
+        thread::spawn(move || {
+            while !terminate_clone.load(Ordering::Relaxed) {
+                {
+                    let cpu = {
+                        let cpu = cpu_clone.lock().unwrap();
+                        cpu.clone()
+                    };
+
+                    let mut snap = snapshot_clone.lock().unwrap();
+                    *snap = cpu;
+                }
+
+                thread::sleep(Duration::from_millis(16));
+            }
+        })
+    };
+
+    let tui_thread = {
+        let mut terminal = ratatui::init();
+
+        let app = Arc::new(Mutex::new(App::new()));
+        let cpu_clone = Arc::clone(&cpu);
+        let paused_clone = Arc::clone(&paused);
+        let snapshot_clone = Arc::clone(&cpu_snapshot);
+        let terminate_clone = Arc::clone(&terminate);
+
+        thread::spawn(move || loop {
+            let mut app_state = app.lock().unwrap();
+
+            {
+                let cpu_snapshot = snapshot_clone.lock().unwrap();
+
+                terminal
+                    .draw(|frame| app_state.draw(frame, &cpu_snapshot))
+                    .expect("failed to draw frame");
+            }
+
+            if event::poll(time::Duration::from_millis(5)).expect("Failed to poll events") {
+                if let Event::Key(key) = event::read().expect("Failed to read event") {
+                    match key.code {
+                        KeyCode::Char('x') => {
+                            terminate_clone.store(true, Ordering::Relaxed);
+                            ratatui::restore();
+                            break;
                         }
+                        KeyCode::Char('j') | KeyCode::Down => {
+                            app_state.memory_vertical_scroll =
+                                app_state.memory_vertical_scroll.saturating_add(1);
+                            app_state.memory_vertical_scroll_state = app_state
+                                .memory_vertical_scroll_state
+                                .position(app_state.memory_vertical_scroll);
+                        }
+                        KeyCode::Char('k') | KeyCode::Up => {
+                            app_state.memory_vertical_scroll =
+                                app_state.memory_vertical_scroll.saturating_sub(1);
+                            app_state.memory_vertical_scroll_state = app_state
+                                .memory_vertical_scroll_state
+                                .position(app_state.memory_vertical_scroll);
+                        }
+                        KeyCode::Char('n') => {
+                            let mut cpu = cpu_clone.lock().unwrap();
+                            if !cpu.is_halted {
+                                cpu.step();
+                            }
+                        }
+                        KeyCode::Char('p') => {
+                            let is_paused = paused_clone.load(Ordering::Relaxed);
+                            paused_clone.store(!is_paused, Ordering::Relaxed);
+                        }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
-        }
-    }
+        })
+    };
 
-    ratatui::restore();
+    // Wait for both threads to finish
+    tui_thread.join().unwrap();
+    snapshot_thread.join().unwrap();
+    cpu_thread.join().unwrap();
 }
