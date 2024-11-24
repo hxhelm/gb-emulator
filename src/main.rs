@@ -249,7 +249,6 @@ fn main() {
         })
     };
 
-    // Wait for both threads to finish
     tui_thread.join().unwrap();
     snapshot_thread.join().unwrap();
     cpu_thread.join().unwrap();

@@ -8,28 +8,29 @@ pub(crate) enum RLC {
 }
 
 impl Executable for RLC {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             RLC::Register8(register) => {
                 let value = cpu.read_r8(register);
                 let rotated = value.rotate_left(1);
-
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_r8(register, rotated);
+                8
             }
             RLC::HLAddress => {
                 let value = cpu.read_hl_ptr();
                 let rotated = value.rotate_left(1);
-
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_hl_ptr(rotated);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -39,28 +40,29 @@ pub(crate) enum RRC {
 }
 
 impl Executable for RRC {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             RRC::Register8(register) => {
                 let value = cpu.read_r8(register);
                 let rotated = value.rotate_right(1);
-
                 cpu.registers.f.carry = value & 0x1 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_r8(register, rotated);
+                8
             }
             RRC::HLAddress => {
                 let value = cpu.read_hl_ptr();
                 let rotated = value.rotate_right(1);
-
                 cpu.registers.f.carry = value & 0x1 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_hl_ptr(rotated);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -70,8 +72,8 @@ pub(crate) enum RL {
 }
 
 impl Executable for RL {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             RL::Register8(register) => {
                 let value = cpu.read_r8(register);
 
@@ -84,6 +86,7 @@ impl Executable for RL {
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_r8(register, rotated);
+                8
             }
             RL::HLAddress => {
                 let value = cpu.read_hl_ptr();
@@ -97,11 +100,13 @@ impl Executable for RL {
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_hl_ptr(rotated);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -111,8 +116,8 @@ pub(crate) enum RR {
 }
 
 impl Executable for RR {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             RR::Register8(register) => {
                 let value = cpu.read_r8(register);
 
@@ -125,6 +130,7 @@ impl Executable for RR {
                 cpu.registers.f.carry = value & 0x1 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_r8(register, rotated);
+                8
             }
             RR::HLAddress => {
                 let value = cpu.read_hl_ptr();
@@ -138,11 +144,13 @@ impl Executable for RR {
                 cpu.registers.f.carry = value & 0x1 != 0;
                 cpu.registers.f.zero = rotated == 0;
                 cpu.write_hl_ptr(rotated);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -152,32 +160,29 @@ pub(crate) enum SLA {
 }
 
 impl Executable for SLA {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             SLA::Register8(register) => {
                 let value = cpu.read_r8(register);
-
                 let shifted = value << 1;
-
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_r8(register, shifted);
+                8
             }
             SLA::HLAddress => {
                 let value = cpu.read_hl_ptr();
-
                 let shifted = value << 1;
-
                 cpu.registers.f.carry = value & 0x80 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_hl_ptr(shifted);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -187,32 +192,29 @@ pub(crate) enum SRA {
 }
 
 impl Executable for SRA {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             SRA::Register8(register) => {
                 let value = cpu.read_r8(register);
-
                 let shifted = ((value as i8) >> 1) as u8;
-
                 cpu.registers.f.carry = value & 0x01 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_r8(register, shifted);
+                8
             }
             SRA::HLAddress => {
                 let value = cpu.read_hl_ptr();
-
                 let shifted = ((value as i8) >> 1) as u8;
-
                 cpu.registers.f.carry = value & 0x01 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_hl_ptr(shifted);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -222,25 +224,28 @@ pub(crate) enum SWAP {
 }
 
 impl Executable for SWAP {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             SWAP::Register8(register) => {
                 let value = cpu.read_r8(register);
                 let swapped = value.rotate_right(4);
                 cpu.registers.f.negative = swapped == 0;
                 cpu.write_r8(register, swapped);
+                8
             }
             SWAP::HLAddress => {
                 let value = cpu.read_hl_ptr();
                 let swapped = value.rotate_right(4);
                 cpu.registers.f.negative = swapped == 0;
                 cpu.write_hl_ptr(swapped);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.carry = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -250,32 +255,29 @@ pub(crate) enum SRL {
 }
 
 impl Executable for SRL {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        match self {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let cycles = match self {
             SRL::Register8(register) => {
                 let value = cpu.read_r8(register);
-
                 let shifted = value >> 1;
-
                 cpu.registers.f.carry = value & 0x01 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_r8(register, shifted);
+                8
             }
             SRL::HLAddress => {
                 let value = cpu.read_hl_ptr();
-
                 let shifted = value >> 1;
-
                 cpu.registers.f.carry = value & 0x01 != 0;
                 cpu.registers.f.zero = shifted == 0;
-
                 cpu.write_hl_ptr(shifted);
+                16
             }
-        }
+        };
 
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
+        cycles
     }
 }
 
@@ -303,15 +305,16 @@ pub(crate) enum BIT {
 }
 
 impl Executable for BIT {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
-        let (bit, value) = match self {
-            BIT::Register8(bit, register) => (bit, cpu.read_r8(register)),
-            BIT::HLAddress(bit) => (bit, cpu.read_hl_ptr()),
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
+        let (bit, value, cycles) = match self {
+            BIT::Register8(bit, register) => (bit, cpu.read_r8(register), 8),
+            BIT::HLAddress(bit) => (bit, cpu.read_hl_ptr(), 12),
         };
 
         cpu.registers.f.zero = bit.as_bit_mask() & value == 0;
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = true;
+        cycles
     }
 }
 
@@ -321,13 +324,17 @@ pub(crate) enum RES {
 }
 
 impl Executable for RES {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
         match self {
             RES::Register8(bit, register) => {
-                cpu.write_r8(register, cpu.read_r8(register) & !bit.as_bit_mask())
+                cpu.write_r8(register, cpu.read_r8(register) & !bit.as_bit_mask());
+                8
             }
-            RES::HLAddress(bit) => cpu.write_hl_ptr(cpu.read_hl_ptr() & !bit.as_bit_mask()),
-        };
+            RES::HLAddress(bit) => {
+                cpu.write_hl_ptr(cpu.read_hl_ptr() & !bit.as_bit_mask());
+                16
+            }
+        }
     }
 }
 
@@ -337,12 +344,16 @@ pub(crate) enum SET {
 }
 
 impl Executable for SET {
-    fn execute(&self, cpu: &mut crate::cpu::CPU) {
+    fn execute(&self, cpu: &mut crate::cpu::CPU) -> u8 {
         match self {
             SET::Register8(bit, register) => {
-                cpu.write_r8(register, cpu.read_r8(register) | bit.as_bit_mask())
+                cpu.write_r8(register, cpu.read_r8(register) | bit.as_bit_mask());
+                8
             }
-            SET::HLAddress(bit) => cpu.write_hl_ptr(cpu.read_hl_ptr() | bit.as_bit_mask()),
-        };
+            SET::HLAddress(bit) => {
+                cpu.write_hl_ptr(cpu.read_hl_ptr() | bit.as_bit_mask());
+                16
+            }
+        }
     }
 }

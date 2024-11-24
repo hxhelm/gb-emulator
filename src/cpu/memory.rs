@@ -2,9 +2,11 @@ use super::CPU;
 use std::usize;
 
 pub(crate) const MEMORY_BUS_SIZE: usize = 0xFFFF;
-pub(crate) const VRAM_AREA_START: usize = 0x8000;
-pub(crate) const VRAM_AREA_END: usize = 0x97FF;
-pub(crate) const VRAM_TILE_SIZE: usize = 16;
+pub(crate) const _VRAM_AREA_START: usize = 0x8000;
+pub(crate) const _VRAM_AREA_END: usize = 0x97FF;
+pub(crate) const _VRAM_TILE_SIZE: usize = 16;
+pub(crate) const _OAM_AREA_START: usize = 0xFE00;
+pub(crate) const _OAM_AREA_END: usize = 0xFE9F;
 
 #[derive(Clone, Copy)]
 pub(crate) struct MemoryBus {

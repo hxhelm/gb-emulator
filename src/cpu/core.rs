@@ -1,123 +1,79 @@
 use super::instructions::Executable;
 use super::memory::*;
 use super::opcodes::get_instruction;
-use std::convert::From;
+use super::registers::*;
 
 #[derive(Default, Clone, Copy)]
-pub(crate) struct Flags {
-    pub(crate) zero: bool,
-    pub(crate) negative: bool,
-    pub(crate) half_carry: bool,
-    pub(crate) carry: bool,
+pub struct Clock {
+    pub(crate) t: u64,
+    pub(crate) m: u64,
 }
 
-const ZERO_FLAG_BYTE_POSITION: u8 = 7;
-const NEGATIVE_FLAG_BYTE_POSITION: u8 = 6;
-const HALF_CARRY_FLAG_BYTE_POSITION: u8 = 5;
-const CARRY_FLAG_BYTE_POSITION: u8 = 4;
-
-impl From<&Flags> for u8 {
-    fn from(flags: &Flags) -> u8 {
-        (if flags.zero { 1 } else { 0 }) << ZERO_FLAG_BYTE_POSITION
-            | (if flags.negative { 1 } else { 0 }) << NEGATIVE_FLAG_BYTE_POSITION
-            | (if flags.half_carry { 1 } else { 0 }) << HALF_CARRY_FLAG_BYTE_POSITION
-            | (if flags.carry { 1 } else { 0 }) << CARRY_FLAG_BYTE_POSITION
+impl Clock {
+    fn increment(&mut self, t_cycles: u8) {
+        self.t = self.m.wrapping_add(t_cycles.into());
+        self.m = self.t / 4;
     }
-}
-
-impl From<u8> for Flags {
-    fn from(value: u8) -> Self {
-        let zero = ((value >> ZERO_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let negative = ((value >> NEGATIVE_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let half_carry = ((value >> HALF_CARRY_FLAG_BYTE_POSITION) & 0b1) != 0;
-        let carry = ((value >> CARRY_FLAG_BYTE_POSITION) & 0b1) != 0;
-
-        Flags {
-            zero,
-            negative,
-            half_carry,
-            carry,
-        }
-    }
-}
-
-#[derive(Default, Clone, Copy)]
-pub(crate) struct Registers {
-    pub(crate) a: u8,
-    pub(crate) b: u8,
-    pub(crate) c: u8,
-    pub(crate) d: u8,
-    pub(crate) e: u8,
-    pub(crate) f: Flags,
-    pub(crate) h: u8,
-    pub(crate) l: u8,
-    pub(crate) sp: u16,
-    pub(crate) pc: u16,
 }
 
 #[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: MemoryBus,
+    pub(crate) clock: Clock,
+    last_timer_update: u64,
     pub(crate) ime: bool,
     pub(crate) is_halted: bool,
     pub(crate) current_opcode: u8,
 }
 
 impl CPU {
-    pub fn read_af(&self) -> u16 {
-        let flags: u8 = u8::from(&self.registers.f);
-        (self.registers.a as u16) << 8 | flags as u16
+    fn read_tac(&self) -> u8 {
+        self.bus.memory[0xFF07]
     }
 
-    pub fn read_bc(&self) -> u16 {
-        (self.registers.b as u16) << 8 | self.registers.c as u16
+    fn is_timer_enabled(&self) -> bool {
+        (self.read_tac() & 0x04) != 0
     }
 
-    pub fn write_bc(&mut self, value: u16) {
-        [self.registers.b, self.registers.c] = value.to_be_bytes();
+    fn get_timer_t_frequency(&self) -> u64 {
+        const TIMER_FREQUENCIES: [u64; 4] = [256, 4, 16, 64];
+        TIMER_FREQUENCIES[(self.read_tac() & 0x03) as usize]
     }
 
-    pub fn read_de(&self) -> u16 {
-        (self.registers.d as u16) << 8 | self.registers.e as u16
+    fn read_tma(&self) -> u8 {
+        self.bus.memory[0xFF06]
     }
 
-    pub fn write_de(&mut self, value: u16) {
-        [self.registers.d, self.registers.e] = value.to_be_bytes();
+    fn read_tima(&self) -> u8 {
+        self.bus.memory[0xFF05]
     }
 
-    pub fn read_hl(&self) -> u16 {
-        (self.registers.h as u16) << 8 | self.registers.l as u16
+    fn write_tima(&mut self, value: u8) {
+        self.bus.memory[0xFF05] = value;
     }
 
-    pub fn write_hl(&mut self, value: u16) {
-        [self.registers.h, self.registers.l] = value.to_be_bytes();
-    }
+    fn update_timers(&mut self) {
+        if !self.is_timer_enabled() {
+            return;
+        }
 
-    pub fn read_hl_ptr(&self) -> u8 {
-        self.bus.read_byte(self.read_hl())
-    }
+        let timer_frequency = self.get_timer_t_frequency();
 
-    pub fn write_hl_ptr(&mut self, value: u8) {
-        self.bus.write_byte(self.read_hl(), value);
-    }
+        let timer_diff = self.clock.t.saturating_sub(self.last_timer_update);
+        if timer_diff >= timer_frequency {
+            let increments = timer_diff / timer_frequency;
+            let (tima, did_overflow) = self.read_tima().overflowing_add(increments as u8);
 
-    pub fn call_address(&mut self, address: u16) {
-        // with CALL instructions being 3 bytes long, we add the address of the instruction
-        // following the CALL instruction to the stack
-        self.push_to_stack(self.registers.pc.wrapping_add(3));
-        self.registers.pc = address;
-    }
+            if did_overflow {
+                self.write_tima(self.read_tma());
+                // TODO: trigger interrupt
+            } else {
+                self.write_tima(tima);
+            }
 
-    pub fn step(&mut self) {
-        let instruction_data = self.fetch();
-        self.current_opcode = instruction_data.opcode;
-
-        let (instruction, bytes) = get_instruction(&instruction_data);
-
-        instruction.execute(self);
-
-        self.registers.pc += bytes;
+            self.last_timer_update += increments * timer_frequency;
+        }
     }
 
     pub fn boot_rom(&mut self, boot_rom: &[u8]) {
@@ -126,6 +82,21 @@ impl CPU {
             self.bus.memory[i] = *byte;
             i += 1;
         }
+    }
+
+    pub fn step(&mut self) {
+        let instruction_data = self.fetch();
+        self.current_opcode = instruction_data.opcode;
+
+        let (instruction, bytes) = get_instruction(&instruction_data);
+        self.registers.pc += bytes;
+
+        let t_cycles = instruction.execute(self);
+        self.clock.increment(t_cycles);
+        self.update_timers();
+
+        // TODO: update ppu state
+        // TODO: handle interrupts
     }
 }
 

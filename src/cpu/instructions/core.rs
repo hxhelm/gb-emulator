@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
+use crate::cpu::registers::*;
 use crate::cpu::CPU;
-use crate::cpu::{registers::*, Flags};
 
 use super::prefixed::*;
 
@@ -51,11 +51,11 @@ pub enum Instruction {
 }
 
 pub(crate) trait Executable {
-    fn execute(&self, cpu: &mut CPU);
+    fn execute(&self, cpu: &mut CPU) -> u8;
 }
 
 impl Executable for Instruction {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             Self::Add(instruction) => instruction.execute(cpu),
             Self::Adc(instruction) => instruction.execute(cpu),
@@ -109,6 +109,15 @@ pub(crate) enum ByteTarget {
     HLAddress,
 }
 
+impl ByteTarget {
+    fn cycles(&self) -> u8 {
+        match self {
+            ByteTarget::Register8(_) => 4,
+            _ => 8,
+        }
+    }
+}
+
 pub(crate) enum WordTarget {
     Register16(R16),
     SP,
@@ -131,7 +140,7 @@ pub(crate) enum ADD {
 }
 
 impl Executable for ADD {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             ADD::Byte(target) => {
                 let value = cpu.read_bytetarget(target);
@@ -143,6 +152,7 @@ impl Executable for ADD {
                 cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
 
                 cpu.registers.a = result;
+                target.cycles()
             }
             ADD::Word(target) => {
                 let value = match target {
@@ -156,6 +166,7 @@ impl Executable for ADD {
                 cpu.registers.f.half_carry = half_carry_set_u16(cpu.read_hl(), value);
 
                 cpu.write_hl(result);
+                8
             }
             ADD::StackPointer(offset) => {
                 let (result, did_overflow) = cpu
@@ -171,15 +182,16 @@ impl Executable for ADD {
                 cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
 
                 cpu.registers.sp = result;
+                16
             }
-        };
+        }
     }
 }
 
 pub(crate) struct ADC(pub(crate) ByteTarget);
 
 impl Executable for ADC {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let carry_val: u8 = if cpu.registers.f.carry { 1 } else { 0 };
         let value = cpu.read_bytetarget(&self.0);
 
@@ -192,13 +204,14 @@ impl Executable for ADC {
         cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, result);
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct SUB(pub(crate) ByteTarget);
 
 impl Executable for SUB {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let value = cpu.read_bytetarget(&self.0);
         let (result, did_overflow) = cpu.registers.a.overflowing_sub(value);
 
@@ -208,13 +221,14 @@ impl Executable for SUB {
         cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct SBC(pub(crate) ByteTarget);
 
 impl Executable for SBC {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let carry_val: u8 = if cpu.registers.f.carry { 1 } else { 0 };
         let value = cpu.read_bytetarget(&self.0);
 
@@ -227,13 +241,14 @@ impl Executable for SBC {
         cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, result);
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct AND(pub(crate) ByteTarget);
 
 impl Executable for AND {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let value = cpu.read_bytetarget(&self.0);
         let result = cpu.registers.a & value;
 
@@ -243,13 +258,14 @@ impl Executable for AND {
         cpu.registers.f.half_carry = true;
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct XOR(pub(crate) ByteTarget);
 
 impl Executable for XOR {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let value = cpu.read_bytetarget(&self.0);
         let result = cpu.registers.a ^ value;
 
@@ -259,13 +275,14 @@ impl Executable for XOR {
         cpu.registers.f.half_carry = false;
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct OR(pub(crate) ByteTarget);
 
 impl Executable for OR {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let value = cpu.read_bytetarget(&self.0);
         let result = cpu.registers.a | value;
 
@@ -275,13 +292,14 @@ impl Executable for OR {
         cpu.registers.f.half_carry = false;
 
         cpu.registers.a = result;
+        self.0.cycles()
     }
 }
 
 pub(crate) struct CP(pub(crate) ByteTarget);
 
 impl Executable for CP {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let value = cpu.read_bytetarget(&self.0);
         let (result, did_overflow) = cpu.registers.a.overflowing_sub(value);
 
@@ -289,6 +307,7 @@ impl Executable for CP {
         cpu.registers.f.negative = true;
         cpu.registers.f.carry = did_overflow;
         cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
+        self.0.cycles()
     }
 }
 
@@ -300,7 +319,7 @@ pub(crate) enum INC {
 }
 
 impl Executable for INC {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             INC::R8(register) => {
                 let current = cpu.read_r8(register);
@@ -311,6 +330,7 @@ impl Executable for INC {
                 cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
 
                 cpu.write_r8(register, result);
+                4
             }
             INC::HL => {
                 let current = cpu.read_hl_ptr();
@@ -321,16 +341,19 @@ impl Executable for INC {
                 cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
 
                 cpu.write_hl_ptr(result);
+                12
             }
             INC::R16(register) => {
                 let (result, _) = cpu.read_r16(register).overflowing_add(1);
 
                 cpu.write_r16(register, result);
+                8
             }
             INC::SP => {
                 let (result, _) = cpu.registers.sp.overflowing_add(1);
 
                 cpu.registers.sp = result;
+                8
             }
         }
     }
@@ -344,7 +367,7 @@ pub(crate) enum DEC {
 }
 
 impl Executable for DEC {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             DEC::R8(register) => {
                 let current = cpu.read_r8(register);
@@ -355,6 +378,7 @@ impl Executable for DEC {
                 cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
 
                 cpu.write_r8(register, result);
+                4
             }
             DEC::HL => {
                 let current = cpu.read_hl_ptr();
@@ -365,16 +389,19 @@ impl Executable for DEC {
                 cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
 
                 cpu.write_hl_ptr(result);
+                12
             }
             DEC::R16(register) => {
                 let (result, _) = cpu.read_r16(register).overflowing_sub(1);
 
                 cpu.write_r16(register, result);
+                8
             }
             DEC::SP => {
                 let (result, _) = cpu.registers.sp.overflowing_sub(1);
 
                 cpu.registers.sp = result;
+                8
             }
         }
     }
@@ -383,7 +410,7 @@ impl Executable for DEC {
 pub(crate) struct RRCA;
 
 impl Executable for RRCA {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let rotated = cpu.registers.a.rotate_right(1);
 
         cpu.registers.f.zero = false;
@@ -391,13 +418,14 @@ impl Executable for RRCA {
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
         cpu.registers.a = rotated;
+        4
     }
 }
 
 pub(crate) struct RLCA;
 
 impl Executable for RLCA {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let rotated = cpu.registers.a.rotate_left(1);
 
         cpu.registers.f.zero = false;
@@ -405,13 +433,14 @@ impl Executable for RLCA {
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x80 != 0;
         cpu.registers.a = rotated;
+        4
     }
 }
 
 pub(crate) struct RRA;
 
 impl Executable for RRA {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let rotated = if cpu.registers.f.carry {
             cpu.registers.a.rotate_right(1) | 0x80
         } else {
@@ -423,13 +452,14 @@ impl Executable for RRA {
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x1 != 0;
         cpu.registers.a = rotated;
+        4
     }
 }
 
 pub(crate) struct RLA;
 
 impl Executable for RLA {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let rotated = if cpu.registers.f.carry {
             cpu.registers.a.rotate_left(1) | 0x01
         } else {
@@ -441,13 +471,14 @@ impl Executable for RLA {
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = cpu.registers.a & 0x80 != 0;
         cpu.registers.a = rotated;
+        4
     }
 }
 
 pub(crate) struct DAA;
 
 impl Executable for DAA {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         let a = cpu.registers.a;
         let mut correction = 0;
 
@@ -469,36 +500,40 @@ impl Executable for DAA {
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = correction >= 0x60;
         cpu.registers.a = new_a;
+        4
     }
 }
 
 pub(crate) struct CPL;
 
 impl Executable for CPL {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         cpu.registers.f.negative = true;
         cpu.registers.f.half_carry = true;
         cpu.registers.a = !cpu.registers.a;
+        4
     }
 }
 
 pub(crate) struct SCF;
 
 impl Executable for SCF {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = true;
+        4
     }
 }
 
 pub(crate) struct CCF;
 
 impl Executable for CCF {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         cpu.registers.f.negative = false;
         cpu.registers.f.half_carry = false;
         cpu.registers.f.carry = !cpu.registers.f.carry;
+        4
     }
 }
 
@@ -527,15 +562,24 @@ pub(crate) enum JP {
 }
 
 impl Executable for JP {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
-            JP::Constant(address) => cpu.registers.pc = *address,
+            JP::Constant(address) => {
+                cpu.registers.pc = *address;
+                16
+            }
             JP::ConditionalConstant(condition, address) => {
                 if condition.is_true(cpu) {
                     cpu.registers.pc = *address;
+                    16
+                } else {
+                    12
                 }
             }
-            JP::HLAddress => cpu.registers.pc = cpu.read_hl(),
+            JP::HLAddress => {
+                cpu.registers.pc = cpu.read_hl();
+                4
+            }
         }
     }
 }
@@ -546,13 +590,14 @@ pub(crate) enum JR {
 }
 
 impl Executable for JR {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             JR::Offset(address) => {
                 cpu.registers.pc = cpu
                     .registers
                     .pc
-                    .wrapping_add_signed(i16::from(*address as i8))
+                    .wrapping_add_signed(i16::from(*address as i8));
+                12
             }
             JR::ConditionalOffset(condition, address) => {
                 if condition.is_true(cpu) {
@@ -560,6 +605,9 @@ impl Executable for JR {
                         .registers
                         .pc
                         .wrapping_add_signed(i16::from(*address as i8));
+                    12
+                } else {
+                    8
                 }
             }
         }
@@ -572,15 +620,30 @@ pub(crate) enum CALL {
 }
 
 impl Executable for CALL {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
-            CALL::Constant(address) => cpu.call_address(*address),
+            CALL::Constant(address) => {
+                cpu.call_address(*address);
+                24
+            }
             CALL::ConditionalConstant(condition, address) => {
                 if condition.is_true(cpu) {
                     cpu.call_address(*address);
+                    24
+                } else {
+                    12
                 }
             }
         }
+    }
+}
+
+impl CPU {
+    fn call_address(&mut self, address: u16) {
+        // with CALL instructions being 3 bytes long, we add the address of the instruction
+        // following the CALL instruction to the stack
+        self.push_to_stack(self.registers.pc.wrapping_add(3));
+        self.registers.pc = address;
     }
 }
 
@@ -597,8 +660,9 @@ pub(crate) enum RST {
 }
 
 impl Executable for RST {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         cpu.call_address(*self as u16);
+        16
     }
 }
 
@@ -609,17 +673,24 @@ pub(crate) enum RET {
 }
 
 impl Executable for RET {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
-            RET::RET => cpu.registers.pc = cpu.pop_from_stack(),
+            RET::RET => {
+                cpu.registers.pc = cpu.pop_from_stack();
+                16
+            }
             RET::Conditional(condition) => {
                 if condition.is_true(cpu) {
                     cpu.registers.pc = cpu.pop_from_stack();
+                    20
+                } else {
+                    8
                 }
             }
             RET::EI => {
                 cpu.registers.pc = cpu.pop_from_stack();
                 cpu.ime = true;
+                16
             }
         }
     }
@@ -631,11 +702,12 @@ pub(crate) enum PUSH {
 }
 
 impl Executable for PUSH {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             PUSH::AF => cpu.push_to_stack(cpu.read_af()),
             PUSH::R16(register) => cpu.push_to_stack(cpu.read_r16(register)),
-        }
+        };
+        16
     }
 }
 
@@ -645,7 +717,7 @@ pub(crate) enum POP {
 }
 
 impl Executable for POP {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             POP::AF => {
                 let [a, f] = cpu.pop_from_stack().to_be_bytes();
@@ -656,7 +728,8 @@ impl Executable for POP {
                 let value = cpu.pop_from_stack();
                 cpu.write_r16(register, value);
             }
-        }
+        };
+        12
     }
 }
 
@@ -676,21 +749,33 @@ pub(crate) enum LD {
 }
 
 impl Executable for LD {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             LD::LoadToA(target) => {
                 cpu.registers.a = cpu.read_from(target);
+                8
             }
-            LD::LoadToADirectly(address) => cpu.registers.a = cpu.bus.read_byte(*address),
+            LD::LoadToADirectly(address) => {
+                cpu.registers.a = cpu.bus.read_byte(*address);
+                16
+            }
             LD::LoadToR8(register, target) => {
                 let value = cpu.read_bytetarget(target);
                 cpu.write_r8(register, value);
+                target.cycles()
             }
             LD::LoadToR16(register, value) => {
                 cpu.write_r16(register, *value);
+                12
             }
-            LD::LoadToSP(value) => cpu.registers.sp = *value,
-            LD::LoadHLToSP => cpu.registers.sp = cpu.read_hl(),
+            LD::LoadToSP(value) => {
+                cpu.registers.sp = *value;
+                12
+            }
+            LD::LoadHLToSP => {
+                cpu.registers.sp = cpu.read_hl();
+                8
+            }
             LD::LoadSPToHL(offset) => {
                 let (sp, did_overflow) = cpu
                     .registers
@@ -702,13 +787,29 @@ impl Executable for LD {
                 cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
 
                 cpu.write_hl(sp);
+                12
             }
-            LD::StoreA(target) => cpu.store_at(target, cpu.registers.a),
-            LD::StoreADirectly(address) => cpu.bus.write_byte(*address, cpu.registers.a),
-            LD::StoreHLRegister(register) => cpu.write_hl_ptr(cpu.read_r8(register)),
-            LD::StoreHLConstant(value) => cpu.write_hl_ptr(*value),
-            LD::StoreSP(value) => cpu.bus.write_word(*value, cpu.registers.sp),
-        };
+            LD::StoreA(target) => {
+                cpu.store_at(target, cpu.registers.a);
+                8
+            }
+            LD::StoreADirectly(address) => {
+                cpu.bus.write_byte(*address, cpu.registers.a);
+                16
+            }
+            LD::StoreHLRegister(register) => {
+                cpu.write_hl_ptr(cpu.read_r8(register));
+                8
+            }
+            LD::StoreHLConstant(value) => {
+                cpu.write_hl_ptr(*value);
+                12
+            }
+            LD::StoreSP(value) => {
+                cpu.bus.write_word(*value, cpu.registers.sp);
+                20
+            }
+        }
     }
 }
 
@@ -720,14 +821,25 @@ pub(crate) enum LDH {
 }
 
 impl Executable for LDH {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
-            LDH::LoadConstant(offset) => cpu.registers.a = cpu.bus.read_byte_at_offset(*offset),
-            LDH::LoadOffset => cpu.registers.a = cpu.bus.read_byte_at_offset(cpu.registers.c),
-            LDH::StoreConstant(offset) => cpu.bus.write_byte_at_offset(*offset, cpu.registers.a),
-            LDH::StoreOffset => cpu
-                .bus
-                .write_byte_at_offset(cpu.registers.c, cpu.registers.a),
+            LDH::LoadConstant(offset) => {
+                cpu.registers.a = cpu.bus.read_byte_at_offset(*offset);
+                12
+            }
+            LDH::LoadOffset => {
+                cpu.registers.a = cpu.bus.read_byte_at_offset(cpu.registers.c);
+                8
+            }
+            LDH::StoreConstant(offset) => {
+                cpu.bus.write_byte_at_offset(*offset, cpu.registers.a);
+                12
+            }
+            LDH::StoreOffset => {
+                cpu.bus
+                    .write_byte_at_offset(cpu.registers.c, cpu.registers.a);
+                8
+            }
         }
     }
 }
@@ -735,40 +847,46 @@ impl Executable for LDH {
 pub(crate) struct NOP;
 
 impl Executable for NOP {
-    fn execute(&self, _cpu: &mut CPU) {}
+    fn execute(&self, _cpu: &mut CPU) -> u8 {
+        4
+    }
 }
 
 pub(crate) struct STOP(u8);
 
 impl Executable for STOP {
-    fn execute(&self, _cpu: &mut CPU) {
-        todo!();
+    fn execute(&self, _cpu: &mut CPU) -> u8 {
+        // TODO: implement
+        4
     }
 }
 
 pub(crate) struct HALT;
 
 impl Executable for HALT {
-    fn execute(&self, _cpu: &mut CPU) {
-        todo!();
+    fn execute(&self, _cpu: &mut CPU) -> u8 {
+        // TODO: implement
+        4
     }
 }
 
 pub(crate) struct DI;
 
 impl Executable for DI {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         cpu.ime = false;
+        4
     }
 }
 
 pub(crate) struct EI;
 
 impl Executable for EI {
-    fn execute(&self, cpu: &mut CPU) {
+    fn execute(&self, cpu: &mut CPU) -> u8 {
         // normally executed after the instruction following EI, have to see whether this will be an
         // issue later
         cpu.ime = true;
+        4
     }
 }
 
