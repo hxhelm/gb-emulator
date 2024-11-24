@@ -1,11 +1,9 @@
-#![allow(dead_code)]
-
 use super::instructions::Executable;
 use super::memory::*;
 use super::opcodes::get_instruction;
 use std::convert::From;
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub(crate) struct Flags {
     pub(crate) zero: bool,
     pub(crate) negative: bool,
@@ -43,7 +41,7 @@ impl From<u8> for Flags {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub(crate) struct Registers {
     pub(crate) a: u8,
     pub(crate) b: u8,
@@ -57,7 +55,7 @@ pub(crate) struct Registers {
     pub(crate) pc: u16,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: MemoryBus,
@@ -105,7 +103,9 @@ impl CPU {
     }
 
     pub fn call_address(&mut self, address: u16) {
-        self.push_to_stack(self.registers.pc);
+        // with CALL instructions being 3 bytes long, we add the address of the instruction
+        // following the CALL instruction to the stack
+        self.push_to_stack(self.registers.pc.wrapping_add(3));
         self.registers.pc = address;
     }
 
