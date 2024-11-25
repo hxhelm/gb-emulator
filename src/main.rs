@@ -21,6 +21,8 @@ use std::{
 };
 
 mod cpu;
+mod emulator;
+mod graphics;
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
 

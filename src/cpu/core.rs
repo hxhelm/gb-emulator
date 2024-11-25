@@ -84,7 +84,7 @@ impl CPU {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> u8 {
         let instruction_data = self.fetch();
         self.current_opcode = instruction_data.opcode;
 
@@ -95,8 +95,9 @@ impl CPU {
         self.clock.increment(t_cycles);
         self.update_timers();
 
-        // TODO: update ppu state
         // TODO: handle interrupts
+
+        t_cycles
     }
 }
 
