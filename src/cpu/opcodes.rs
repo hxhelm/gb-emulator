@@ -1,7 +1,7 @@
 use crate::cpu::{
     instructions::*,
-    memory::InstructionData,
     registers::{R16Mem, R16, R8},
+    InstructionData,
 };
 
 /// Maps the opcode to a Instruction to execute and returns a tuple consisting of the instruction

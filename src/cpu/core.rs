@@ -1,7 +1,7 @@
 use super::instructions::Executable;
-use super::memory::*;
 use super::opcodes::get_instruction;
 use super::registers::*;
+use crate::memory::bus::Bus;
 
 #[derive(Default, Clone, Copy)]
 pub struct Clock {
@@ -16,10 +16,16 @@ impl Clock {
     }
 }
 
+pub(crate) struct InstructionData {
+    pub(super) opcode: u8,
+    pub(super) param1: u8,
+    pub(super) param2: u8,
+}
+
 #[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
-    pub(crate) bus: MemoryBus,
+    pub(crate) bus: Bus,
     pub(crate) clock: Clock,
     last_timer_update: u64,
     pub(crate) ime: bool,
@@ -28,8 +34,19 @@ pub struct CPU {
 }
 
 impl CPU {
+    pub(crate) fn push_to_stack(&mut self, value: u16) {
+        self.registers.sp = self.registers.sp.wrapping_sub(2);
+        self.bus.write_word(self.registers.sp, value);
+    }
+
+    pub(crate) fn pop_from_stack(&mut self) -> u16 {
+        let result = self.bus.read_word(self.registers.sp);
+        self.registers.sp = self.registers.sp.wrapping_add(2);
+        result
+    }
+
     fn read_tac(&self) -> u8 {
-        self.bus.memory[0xFF07]
+        self.bus.read_byte(0xFF07)
     }
 
     fn is_timer_enabled(&self) -> bool {
@@ -42,15 +59,15 @@ impl CPU {
     }
 
     fn read_tma(&self) -> u8 {
-        self.bus.memory[0xFF06]
+        self.bus.read_byte(0xFF06)
     }
 
     fn read_tima(&self) -> u8 {
-        self.bus.memory[0xFF05]
+        self.bus.read_byte(0xFF05)
     }
 
     fn write_tima(&mut self, value: u8) {
-        self.bus.memory[0xFF05] = value;
+        self.bus.write_byte(0xFF05, value);
     }
 
     fn update_timers(&mut self) {
@@ -77,10 +94,17 @@ impl CPU {
     }
 
     pub fn boot_rom(&mut self, boot_rom: &[u8]) {
-        let mut i = 0;
-        for byte in boot_rom {
-            self.bus.memory[i] = *byte;
-            i += 1;
+        for (i, byte) in boot_rom.iter().enumerate() {
+            self.bus.write_byte(i as u16, *byte);
+        }
+    }
+
+    // TODO: handle out of bound fetch
+    pub(crate) fn fetch(&self) -> InstructionData {
+        InstructionData {
+            opcode: self.bus.read_byte(self.registers.pc),
+            param1: self.bus.read_byte(self.registers.pc + 1),
+            param2: self.bus.read_byte(self.registers.pc + 2),
         }
     }
 

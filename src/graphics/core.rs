@@ -1,13 +1,20 @@
-use crate::cpu::memory::MemoryBus;
+use crate::memory::bus::Bus;
 
 const CYCLES_PER_LINE: u16 = 456;
 const CYCLES_PER_VERTICAL_BLANK: u16 = 4560;
 
-enum PPUMode {
+#[derive(Clone, Copy)]
+pub(crate) enum PPUMode {
     OBJSearch,
     SendPixels,
     HorizontalBlank,
     VerticalBlank,
+}
+
+impl Default for PPUMode {
+    fn default() -> Self {
+        Self::OBJSearch
+    }
 }
 
 impl PPUMode {
@@ -23,6 +30,7 @@ impl PPUMode {
     }
 }
 
+#[derive(Default, Clone, Copy)]
 pub(crate) struct PPU {
     mode: PPUMode,
     mode_timer: u16,
@@ -51,7 +59,7 @@ impl PPU {
         };
     }
 
-    pub(crate) fn step(&mut self, t_cycles: u8) {
+    pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) {
         self.mode_timer = self.mode_timer.saturating_add(t_cycles.into());
 
         if self.mode_timer >= CYCLES_PER_LINE {
@@ -62,6 +70,8 @@ impl PPU {
             self.mode_timer = 0;
             self.change_mode();
         }
+
+        bus.update_ppu_mode(&self.mode);
 
         // TODO: act according to mode, maybe implement inside change_mode?
     }

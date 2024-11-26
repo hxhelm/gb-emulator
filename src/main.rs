@@ -1,6 +1,8 @@
-use cpu::memory::MEMORY_BUS_SIZE;
 use cpu::CPU;
 use crossterm::event::{self, Event, KeyCode};
+use emulator::Emulator;
+use graphics::PPU;
+use memory::MEMORY_BUS_SIZE;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
@@ -23,6 +25,7 @@ use std::{
 mod cpu;
 mod emulator;
 mod graphics;
+mod memory;
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
 
@@ -39,7 +42,9 @@ impl App {
         }
     }
 
-    fn draw(&mut self, frame: &mut Frame, cpu: &CPU) {
+    fn draw(&mut self, frame: &mut Frame, emulator: &Emulator) {
+        let cpu = &emulator.cpu;
+
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -74,8 +79,10 @@ impl App {
 
         let memory_row_offset = self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE;
         // TODO: make arbitrary fetch of 20 elements a bit 'smarter'
-        let memory_buffer_size = memory_row_offset + MEMORY_VIEW_ELEMENTS_PER_LINE * 20;
-        let memory_text = cpu.bus.memory[memory_row_offset..memory_buffer_size]
+        let memory_buffer_size = MEMORY_VIEW_ELEMENTS_PER_LINE * 20;
+        let memory_text = cpu
+            .bus
+            .read_range(memory_row_offset as u16, memory_buffer_size)
             .chunks(MEMORY_VIEW_ELEMENTS_PER_LINE)
             .enumerate()
             .map(|(i, chunk)| {
@@ -137,31 +144,34 @@ fn main() {
     let bin_path = args.get(1).expect("First argument <BINARY_PATH> required.");
     let contents = fs::read(bin_path).expect("Failed to read binary path.");
 
-    let cpu_init = {
+    let emulator_init = {
         let mut cpu = CPU::default();
 
         cpu.boot_rom(contents.as_slice());
 
-        cpu
+        Emulator {
+            cpu,
+            ppu: PPU::default(),
+        }
     };
-    let cpu = Arc::new(Mutex::new(cpu_init));
-    let cpu_snapshot = Arc::new(Mutex::new(cpu_init.clone()));
+    let emulator = Arc::new(Mutex::new(emulator_init));
+    let emulator_snapshot = Arc::new(Mutex::new(emulator_init.clone()));
 
     let paused = Arc::new(AtomicBool::new(true));
     let terminate = Arc::new(AtomicBool::new(false));
 
     let cpu_thread = {
-        let cpu_clone = Arc::clone(&cpu);
+        let emulator_clone = Arc::clone(&emulator);
         let paused_clone = Arc::clone(&paused);
         let terminate_clone = Arc::clone(&terminate);
 
         thread::spawn(move || {
             while !terminate_clone.load(Ordering::Relaxed) {
                 if !paused_clone.load(Ordering::Relaxed) {
-                    let mut cpu = cpu_clone.lock().unwrap();
+                    let mut emulator = emulator_clone.lock().unwrap();
 
-                    if !cpu.is_halted {
-                        cpu.step();
+                    if !emulator.cpu.is_halted {
+                        emulator.step();
                     }
                 }
 
@@ -172,19 +182,19 @@ fn main() {
 
     let snapshot_thread = {
         let terminate_clone = Arc::clone(&terminate);
-        let cpu_clone = Arc::clone(&cpu);
-        let snapshot_clone = Arc::clone(&cpu_snapshot);
+        let emulator_clone = Arc::clone(&emulator);
+        let snapshot_clone = Arc::clone(&emulator_snapshot);
 
         thread::spawn(move || {
             while !terminate_clone.load(Ordering::Relaxed) {
                 {
-                    let cpu = {
-                        let cpu = cpu_clone.lock().unwrap();
-                        cpu.clone()
+                    let emulator = {
+                        let emulator = emulator_clone.lock().unwrap();
+                        emulator.clone()
                     };
 
                     let mut snap = snapshot_clone.lock().unwrap();
-                    *snap = cpu;
+                    *snap = emulator;
                 }
 
                 thread::sleep(Duration::from_millis(16));
@@ -196,19 +206,19 @@ fn main() {
         let mut terminal = ratatui::init();
 
         let app = Arc::new(Mutex::new(App::new()));
-        let cpu_clone = Arc::clone(&cpu);
+        let emulator_clone = Arc::clone(&emulator);
         let paused_clone = Arc::clone(&paused);
-        let snapshot_clone = Arc::clone(&cpu_snapshot);
+        let snapshot_clone = Arc::clone(&emulator_snapshot);
         let terminate_clone = Arc::clone(&terminate);
 
         thread::spawn(move || loop {
             let mut app_state = app.lock().unwrap();
 
             {
-                let cpu_snapshot = snapshot_clone.lock().unwrap();
+                let emulator = snapshot_clone.lock().unwrap();
 
                 terminal
-                    .draw(|frame| app_state.draw(frame, &cpu_snapshot))
+                    .draw(|frame| app_state.draw(frame, &emulator))
                     .expect("failed to draw frame");
             }
 
@@ -235,9 +245,10 @@ fn main() {
                                 .position(app_state.memory_vertical_scroll);
                         }
                         KeyCode::Char('n') => {
-                            let mut cpu = cpu_clone.lock().unwrap();
-                            if !cpu.is_halted {
-                                cpu.step();
+                            let mut emulator = emulator_clone.lock().unwrap();
+
+                            if !emulator.cpu.is_halted {
+                                emulator.step();
                             }
                         }
                         KeyCode::Char('p') => {
