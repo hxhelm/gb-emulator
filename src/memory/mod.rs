@@ -1,4 +1,4 @@
-pub(crate) mod bus;
-mod memory;
+pub mod bus;
+mod mem;
 
-pub(crate) use memory::MEMORY_BUS_SIZE;
+pub use mem::MEMORY_BUS_SIZE;

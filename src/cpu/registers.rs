@@ -176,7 +176,7 @@ impl CPU {
     pub(crate) fn read_from(&mut self, register: &R16Mem) -> u8 {
         let address = self.read_r16m(register);
 
-        return self.bus.read_byte(address);
+        self.bus.read_byte(address)
     }
 
     pub(crate) fn store_at(&mut self, register: &R16Mem, value: u8) {

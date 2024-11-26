@@ -1,3 +1,4 @@
+#![allow(clippy::upper_case_acronyms)]
 use cpu::CPU;
 use crossterm::event::{self, Event, KeyCode};
 use emulator::Emulator;
@@ -137,6 +138,7 @@ fn register_view(cpu: &CPU) -> [String; 7] {
     ]
 }
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     color_eyre::install().unwrap();
 
@@ -155,7 +157,7 @@ fn main() {
         }
     };
     let emulator = Arc::new(Mutex::new(emulator_init));
-    let emulator_snapshot = Arc::new(Mutex::new(emulator_init.clone()));
+    let emulator_snapshot = Arc::new(Mutex::new(emulator_init));
 
     let paused = Arc::new(AtomicBool::new(true));
     let terminate = Arc::new(AtomicBool::new(false));
@@ -190,7 +192,7 @@ fn main() {
                 {
                     let emulator = {
                         let emulator = emulator_clone.lock().unwrap();
-                        emulator.clone()
+                        *emulator
                     };
 
                     let mut snap = snapshot_clone.lock().unwrap();
@@ -236,6 +238,7 @@ fn main() {
                             app_state.memory_vertical_scroll_state = app_state
                                 .memory_vertical_scroll_state
                                 .position(app_state.memory_vertical_scroll);
+                            drop(app_state);
                         }
                         KeyCode::Char('k') | KeyCode::Up => {
                             app_state.memory_vertical_scroll =
@@ -243,6 +246,7 @@ fn main() {
                             app_state.memory_vertical_scroll_state = app_state
                                 .memory_vertical_scroll_state
                                 .position(app_state.memory_vertical_scroll);
+                            drop(app_state);
                         }
                         KeyCode::Char('n') => {
                             let mut emulator = emulator_clone.lock().unwrap();

@@ -1,18 +1,16 @@
-use std::usize;
-
 use crate::graphics::PPUMode;
 
-pub(crate) const MEMORY_BUS_SIZE: usize = 0xFFFF;
-pub const VRAM_AREA_START: u16 = 0x8000;
-pub const VRAM_AREA_END: u16 = 0x97FF;
-pub const _VRAM_TILE_SIZE: u16 = 16;
-pub const OAM_AREA_START: u16 = 0xFE00;
-pub const OAM_AREA_END: u16 = 0xFE9F;
+pub const MEMORY_BUS_SIZE: usize = 0xFFFF;
+const VRAM_AREA_START: u16 = 0x8000;
+const VRAM_AREA_END: u16 = 0x97FF;
+const _VRAM_TILE_SIZE: u16 = 16;
+const OAM_AREA_START: u16 = 0xFE00;
+const OAM_AREA_END: u16 = 0xFE9F;
 
 #[derive(Clone, Copy)]
-pub(crate) struct Memory {
+pub struct Memory {
     memory: [u8; MEMORY_BUS_SIZE],
-    pub(crate) ppu_mode: PPUMode,
+    pub ppu_mode: PPUMode,
 }
 
 impl Default for Memory {
@@ -25,18 +23,19 @@ impl Default for Memory {
 }
 
 impl Memory {
-    fn address_is_accessible(&self, address: u16) -> bool {
+    const fn address_is_accessible(&self, address: u16) -> bool {
         match address {
             VRAM_AREA_START..VRAM_AREA_END if matches!(self.ppu_mode, PPUMode::SendPixels) => false,
-            OAM_AREA_START..OAM_AREA_END => match self.ppu_mode {
-                PPUMode::OBJSearch | PPUMode::SendPixels => false,
-                _ => true,
-            },
+            OAM_AREA_START..OAM_AREA_END
+                if matches!(self.ppu_mode, PPUMode::OBJSearch | PPUMode::SendPixels) =>
+            {
+                false
+            }
             _ => true,
         }
     }
 
-    pub(crate) fn read(&self, address: u16) -> u8 {
+    pub(crate) const fn read(&self, address: u16) -> u8 {
         if self.address_is_accessible(address) {
             self.memory[address as usize]
         } else {

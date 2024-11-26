@@ -4,7 +4,7 @@ const CYCLES_PER_LINE: u16 = 456;
 const CYCLES_PER_VERTICAL_BLANK: u16 = 4560;
 
 #[derive(Clone, Copy)]
-pub(crate) enum PPUMode {
+pub enum PPUMode {
     OBJSearch,
     SendPixels,
     HorizontalBlank,
@@ -18,7 +18,7 @@ impl Default for PPUMode {
 }
 
 impl PPUMode {
-    fn should_change_mode(&self, timer: u16) -> bool {
+    const fn should_change_mode(self, timer: u16) -> bool {
         match self {
             Self::OBJSearch if timer >= 80 => true,
             // TODO: account for this modes penalties, see: https://gbdev.io/pandocs/Rendering.html#mode-3-length
@@ -31,7 +31,7 @@ impl PPUMode {
 }
 
 #[derive(Default, Clone, Copy)]
-pub(crate) struct PPU {
+pub struct PPU {
     mode: PPUMode,
     mode_timer: u16,
     current_line: u8,
@@ -71,7 +71,7 @@ impl PPU {
             self.change_mode();
         }
 
-        bus.update_ppu_mode(&self.mode);
+        bus.update_ppu_mode(self.mode);
 
         // TODO: act according to mode, maybe implement inside change_mode?
     }
