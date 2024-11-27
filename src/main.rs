@@ -13,9 +13,9 @@ use ratatui::{
     },
     Frame,
 };
-use std::env;
 use std::fs;
 use std::time;
+use std::{cmp::min, env};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex},
@@ -29,6 +29,9 @@ mod graphics;
 mod memory;
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
+const MEMORY_VIEW_BLOCK_HEIGHT: usize = 20;
+const MEMORY_SCROLL_MAX: usize =
+    MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE - MEMORY_VIEW_BLOCK_HEIGHT;
 
 struct App {
     pub memory_vertical_scroll_state: ScrollbarState,
@@ -78,9 +81,11 @@ impl App {
             );
         frame.render_widget(scroll_status, chunks[3]);
 
-        let memory_row_offset = self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE;
-        // TODO: make arbitrary fetch of 20 elements a bit 'smarter'
-        let memory_buffer_size = MEMORY_VIEW_ELEMENTS_PER_LINE * 20;
+        let memory_buffer_size = MEMORY_VIEW_ELEMENTS_PER_LINE * MEMORY_VIEW_BLOCK_HEIGHT;
+        let memory_row_offset = min(
+            MEMORY_BUS_SIZE - memory_buffer_size - 1,
+            self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE,
+        );
         let memory_text = cpu
             .bus
             .read_range(memory_row_offset as u16, memory_buffer_size)
@@ -233,8 +238,10 @@ fn main() {
                             break;
                         }
                         KeyCode::Char('j') | KeyCode::Down => {
-                            app_state.memory_vertical_scroll =
-                                app_state.memory_vertical_scroll.saturating_add(1);
+                            app_state.memory_vertical_scroll = min(
+                                MEMORY_SCROLL_MAX,
+                                app_state.memory_vertical_scroll.saturating_add(1),
+                            );
                             app_state.memory_vertical_scroll_state = app_state
                                 .memory_vertical_scroll_state
                                 .position(app_state.memory_vertical_scroll);
@@ -243,6 +250,27 @@ fn main() {
                         KeyCode::Char('k') | KeyCode::Up => {
                             app_state.memory_vertical_scroll =
                                 app_state.memory_vertical_scroll.saturating_sub(1);
+                            app_state.memory_vertical_scroll_state = app_state
+                                .memory_vertical_scroll_state
+                                .position(app_state.memory_vertical_scroll);
+                            drop(app_state);
+                        }
+                        KeyCode::Char('d') => {
+                            app_state.memory_vertical_scroll = min(
+                                MEMORY_SCROLL_MAX,
+                                app_state
+                                    .memory_vertical_scroll
+                                    .saturating_add(MEMORY_VIEW_BLOCK_HEIGHT),
+                            );
+                            app_state.memory_vertical_scroll_state = app_state
+                                .memory_vertical_scroll_state
+                                .position(app_state.memory_vertical_scroll);
+                            drop(app_state);
+                        }
+                        KeyCode::Char('u') => {
+                            app_state.memory_vertical_scroll = app_state
+                                .memory_vertical_scroll
+                                .saturating_sub(MEMORY_VIEW_BLOCK_HEIGHT);
                             app_state.memory_vertical_scroll_state = app_state
                                 .memory_vertical_scroll_state
                                 .position(app_state.memory_vertical_scroll);
