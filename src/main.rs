@@ -1,8 +1,8 @@
 #![allow(clippy::upper_case_acronyms)]
+use anyhow::Result;
 use cpu::CPU;
 use crossterm::event::{self, Event, KeyCode};
 use emulator::Emulator;
-use graphics::PPU;
 use memory::MEMORY_BUS_SIZE;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
@@ -13,9 +13,8 @@ use ratatui::{
     },
     Frame,
 };
-use std::fs;
+use std::cmp::min;
 use std::time;
-use std::{cmp::min, env};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex},
@@ -33,12 +32,12 @@ const MEMORY_VIEW_BLOCK_HEIGHT: usize = 20;
 const MEMORY_SCROLL_MAX: usize =
     MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE - MEMORY_VIEW_BLOCK_HEIGHT;
 
-struct App {
+struct Debugger {
     pub memory_vertical_scroll_state: ScrollbarState,
     pub memory_vertical_scroll: usize,
 }
 
-impl App {
+impl Debugger {
     const fn new() -> Self {
         Self {
             memory_vertical_scroll_state: ScrollbarState::new(0),
@@ -144,25 +143,12 @@ fn register_view(cpu: &CPU) -> [String; 7] {
 }
 
 #[allow(clippy::too_many_lines)]
-fn main() {
+fn main() -> Result<()> {
     color_eyre::install().unwrap();
 
-    let args: Vec<String> = env::args().collect();
-    let bin_path = args.get(1).expect("First argument <BINARY_PATH> required.");
-    let contents = fs::read(bin_path).expect("Failed to read binary path.");
-
-    let emulator_init = {
-        let mut cpu = CPU::default();
-
-        cpu.boot_rom(contents.as_slice());
-
-        Emulator {
-            cpu,
-            ppu: PPU::default(),
-        }
-    };
-    let emulator = Arc::new(Mutex::new(emulator_init));
-    let emulator_snapshot = Arc::new(Mutex::new(emulator_init));
+    let emulator_init = Emulator::init()?;
+    let emulator = Arc::new(Mutex::new(emulator_init.clone()));
+    let emulator_snapshot = Arc::new(Mutex::new(emulator_init.clone()));
 
     let paused = Arc::new(AtomicBool::new(true));
     let terminate = Arc::new(AtomicBool::new(false));
@@ -197,11 +183,11 @@ fn main() {
                 {
                     let emulator = {
                         let emulator = emulator_clone.lock().unwrap();
-                        *emulator
+                        emulator
                     };
 
                     let mut snap = snapshot_clone.lock().unwrap();
-                    *snap = emulator;
+                    *snap = emulator.clone();
                 }
 
                 thread::sleep(Duration::from_millis(16));
@@ -212,20 +198,20 @@ fn main() {
     let tui_thread = {
         let mut terminal = ratatui::init();
 
-        let app = Arc::new(Mutex::new(App::new()));
+        let debugger = Arc::new(Mutex::new(Debugger::new()));
         let emulator_clone = Arc::clone(&emulator);
         let paused_clone = Arc::clone(&paused);
         let snapshot_clone = Arc::clone(&emulator_snapshot);
         let terminate_clone = Arc::clone(&terminate);
 
         thread::spawn(move || loop {
-            let mut app_state = app.lock().unwrap();
+            let mut debugger_state = debugger.lock().unwrap();
 
             {
                 let emulator = snapshot_clone.lock().unwrap();
 
                 terminal
-                    .draw(|frame| app_state.draw(frame, &emulator))
+                    .draw(|frame| debugger_state.draw(frame, &emulator))
                     .expect("failed to draw frame");
             }
 
@@ -238,43 +224,43 @@ fn main() {
                             break;
                         }
                         KeyCode::Char('j') | KeyCode::Down => {
-                            app_state.memory_vertical_scroll = min(
+                            debugger_state.memory_vertical_scroll = min(
                                 MEMORY_SCROLL_MAX,
-                                app_state.memory_vertical_scroll.saturating_add(1),
+                                debugger_state.memory_vertical_scroll.saturating_add(1),
                             );
-                            app_state.memory_vertical_scroll_state = app_state
+                            debugger_state.memory_vertical_scroll_state = debugger_state
                                 .memory_vertical_scroll_state
-                                .position(app_state.memory_vertical_scroll);
-                            drop(app_state);
+                                .position(debugger_state.memory_vertical_scroll);
+                            drop(debugger_state);
                         }
                         KeyCode::Char('k') | KeyCode::Up => {
-                            app_state.memory_vertical_scroll =
-                                app_state.memory_vertical_scroll.saturating_sub(1);
-                            app_state.memory_vertical_scroll_state = app_state
+                            debugger_state.memory_vertical_scroll =
+                                debugger_state.memory_vertical_scroll.saturating_sub(1);
+                            debugger_state.memory_vertical_scroll_state = debugger_state
                                 .memory_vertical_scroll_state
-                                .position(app_state.memory_vertical_scroll);
-                            drop(app_state);
+                                .position(debugger_state.memory_vertical_scroll);
+                            drop(debugger_state);
                         }
                         KeyCode::Char('d') => {
-                            app_state.memory_vertical_scroll = min(
+                            debugger_state.memory_vertical_scroll = min(
                                 MEMORY_SCROLL_MAX,
-                                app_state
+                                debugger_state
                                     .memory_vertical_scroll
                                     .saturating_add(MEMORY_VIEW_BLOCK_HEIGHT),
                             );
-                            app_state.memory_vertical_scroll_state = app_state
+                            debugger_state.memory_vertical_scroll_state = debugger_state
                                 .memory_vertical_scroll_state
-                                .position(app_state.memory_vertical_scroll);
-                            drop(app_state);
+                                .position(debugger_state.memory_vertical_scroll);
+                            drop(debugger_state);
                         }
                         KeyCode::Char('u') => {
-                            app_state.memory_vertical_scroll = app_state
+                            debugger_state.memory_vertical_scroll = debugger_state
                                 .memory_vertical_scroll
                                 .saturating_sub(MEMORY_VIEW_BLOCK_HEIGHT);
-                            app_state.memory_vertical_scroll_state = app_state
+                            debugger_state.memory_vertical_scroll_state = debugger_state
                                 .memory_vertical_scroll_state
-                                .position(app_state.memory_vertical_scroll);
-                            drop(app_state);
+                                .position(debugger_state.memory_vertical_scroll);
+                            drop(debugger_state);
                         }
                         KeyCode::Char('n') => {
                             let mut emulator = emulator_clone.lock().unwrap();
@@ -297,4 +283,6 @@ fn main() {
     tui_thread.join().unwrap();
     snapshot_thread.join().unwrap();
     cpu_thread.join().unwrap();
+
+    Ok(())
 }

@@ -1,4 +1,12 @@
+use crate::graphics::window::App;
 use crate::memory::bus::Bus;
+use std::sync::Arc;
+
+/// TODO: get winit/pixels working and start paving the way for rendering:
+///  1. winit/pixels window running
+///  2. read tiles/sprites from memory
+///  3. ???
+///  4. draw things to screen
 
 const CYCLES_PER_LINE: u16 = 456;
 
@@ -29,13 +37,24 @@ impl PPUMode {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone)]
 pub struct PPU {
     mode: PPUMode,
     mode_timer: u16,
+    screen: Arc<App>,
 }
 
 impl PPU {
+    pub fn init() -> PPU {
+        // TODO: initialize window
+
+        Self {
+            mode: PPUMode::OBJSearch,
+            mode_timer: 0,
+            screen: Arc::new(App::init()),
+        }
+    }
+
     fn change_mode(&mut self, current_line: u8) {
         self.mode = match self.mode {
             PPUMode::OBJSearch => PPUMode::SendPixels,

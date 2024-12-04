@@ -1,1 +1,6 @@
+# Rust related
 /target
+
+# folder for boot roms
+boot/*
+!boot/.gitkeep
