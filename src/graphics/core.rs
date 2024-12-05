@@ -1,6 +1,4 @@
-use crate::graphics::window::App;
 use crate::memory::bus::Bus;
-use std::sync::Arc;
 
 /// TODO: get winit/pixels working and start paving the way for rendering:
 ///  1. winit/pixels window running
@@ -8,7 +6,11 @@ use std::sync::Arc;
 ///  3. ???
 ///  4. draw things to screen
 
+pub const LCD_WIDTH: usize = 160;
+pub const LCD_HEIGHT: usize = 144;
 const CYCLES_PER_LINE: u16 = 456;
+
+pub type PixelData = [u8; LCD_WIDTH * LCD_HEIGHT];
 
 #[derive(Clone, Copy)]
 pub enum PPUMode {
@@ -37,11 +39,10 @@ impl PPUMode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct PPU {
     mode: PPUMode,
     mode_timer: u16,
-    screen: Arc<App>,
 }
 
 impl PPU {
@@ -51,7 +52,6 @@ impl PPU {
         Self {
             mode: PPUMode::OBJSearch,
             mode_timer: 0,
-            screen: Arc::new(App::init()),
         }
     }
 

@@ -4,7 +4,10 @@
 use error_iter::ErrorIter as _;
 use log::{error, info};
 use pixels::{Error, Pixels, SurfaceTexture};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, KeyEvent, WindowEvent};
@@ -20,6 +23,7 @@ const BOX_SIZE: i16 = 64;
 #[derive(Debug)]
 pub struct App {
     pixels: Option<Pixels>,
+    terminated: Arc<AtomicBool>,
     window: Option<Arc<Window>>,
     world: World,
 }
@@ -79,8 +83,6 @@ impl ApplicationHandler for App {
         if self.window.is_none() {
             self.init_window(event_loop);
         }
-
-        println!("resumed");
     }
 
     fn window_event(
@@ -100,6 +102,7 @@ impl ApplicationHandler for App {
                 ..
             } => {
                 event_loop.exit();
+                self.terminated.store(true, Ordering::Relaxed);
             }
 
             WindowEvent::Resized(size) => {
@@ -119,6 +122,10 @@ impl ApplicationHandler for App {
             }
 
             WindowEvent::RedrawRequested => {
+                if self.terminated.load(Ordering::Relaxed) {
+                    event_loop.exit();
+                }
+
                 if self.pixels.is_none() {
                     return;
                 }
@@ -146,7 +153,7 @@ impl ApplicationHandler for App {
 }
 
 impl App {
-    pub fn init() -> Self {
+    pub fn init(terminated: Arc<AtomicBool>) -> Self {
         let event_loop = EventLoop::new().expect("Failed to create event loop");
         event_loop.set_control_flow(ControlFlow::Wait);
 
@@ -154,6 +161,7 @@ impl App {
             pixels: None,
             window: None,
             world: World::new(),
+            terminated: terminated.clone(),
         };
 
         event_loop.run_app(&mut app).expect("Failed to run app");
