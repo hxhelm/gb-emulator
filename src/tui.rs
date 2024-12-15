@@ -240,10 +240,7 @@ impl Debugger {
                                 }
                                 KeyCode::Char('n') => {
                                     let mut emulator = emulator_clone.write().unwrap();
-
-                                    if !emulator.cpu.is_halted {
-                                        emulator.step();
-                                    }
+                                    emulator.step();
                                 }
                                 KeyCode::Char('p') => {
                                     let is_paused = paused_clone.load(Ordering::Relaxed);

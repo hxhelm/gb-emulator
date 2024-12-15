@@ -1,7 +1,7 @@
 use crate::memory::bus::Bus;
 
 /// TODO: get winit/pixels working and start paving the way for rendering:
-///  1. winit/pixels window running
+///  1. winit/pixels window running ✅
 ///  2. read tiles/sprites from memory
 ///  3. ???
 ///  4. draw things to screen
@@ -10,7 +10,14 @@ pub const LCD_WIDTH: usize = 160;
 pub const LCD_HEIGHT: usize = 144;
 const CYCLES_PER_LINE: u16 = 456;
 
-pub type PixelData = [u8; LCD_WIDTH * LCD_HEIGHT];
+#[derive(Clone, Copy)]
+pub struct PixelData([u8; LCD_WIDTH * LCD_HEIGHT]);
+
+impl Default for PixelData {
+    fn default() -> Self {
+        Self([0; LCD_WIDTH * LCD_HEIGHT])
+    }
+}
 
 #[derive(Clone, Copy)]
 pub enum PPUMode {
@@ -43,15 +50,17 @@ impl PPUMode {
 pub struct PPU {
     mode: PPUMode,
     mode_timer: u16,
+    current_frame: PixelData,
+    screen_finished: bool,
 }
 
 impl PPU {
     pub fn init() -> PPU {
-        // TODO: initialize window
-
         Self {
             mode: PPUMode::OBJSearch,
             mode_timer: 0,
+            current_frame: PixelData::default(),
+            screen_finished: false,
         }
     }
 
@@ -76,7 +85,7 @@ impl PPU {
         };
     }
 
-    pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) {
+    pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) -> Option<PixelData> {
         self.mode_timer = self.mode_timer.saturating_add(t_cycles.into());
 
         if self.mode.should_change_mode(self.mode_timer) {
@@ -90,6 +99,12 @@ impl PPU {
             bus.update_ppu_mode(self.mode);
         }
 
-        // TODO: act according to mode, maybe implement inside change_mode?
+        if self.screen_finished {
+            let framebuffer = Some(self.current_frame);
+            self.current_frame = PixelData::default();
+            framebuffer
+        } else {
+            None
+        }
     }
 }

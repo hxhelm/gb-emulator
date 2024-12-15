@@ -6,6 +6,7 @@ use log::{error, info};
 use pixels::{Error, Pixels, SurfaceTexture};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
+    mpsc::Receiver,
     Arc,
 };
 use winit::application::ApplicationHandler;
@@ -16,12 +17,14 @@ use winit::keyboard::{Key, KeyCode, NamedKey};
 use winit::window::{Window, WindowId};
 use winit_input_helper::WinitInputHelper;
 
-const WIDTH: u32 = 320;
-const HEIGHT: u32 = 240;
-const BOX_SIZE: i16 = 64;
+use super::{PixelData, LCD_HEIGHT, LCD_WIDTH};
+
+const BOX_SIZE: i16 = 32;
 
 #[derive(Debug)]
 pub struct App {
+    // TODO: may receive events other than Frames
+    frame_receiver: Receiver<PixelData>,
     pixels: Option<Pixels>,
     terminated: Arc<AtomicBool>,
     window: Option<Arc<Window>>,
@@ -40,7 +43,7 @@ struct World {
 impl App {
     fn init_window(&mut self, event_loop: &ActiveEventLoop) {
         let window = {
-            let size = LogicalSize::new(WIDTH as f64, HEIGHT as f64);
+            let size = LogicalSize::new((LCD_WIDTH * 3) as f64, (LCD_HEIGHT * 3) as f64);
             Arc::new(
                 event_loop
                     .create_window(
@@ -61,7 +64,7 @@ impl App {
             let window_clone = window.clone();
             let surface_texture =
                 SurfaceTexture::new(window_size.width, window_size.height, &window_clone);
-            match Pixels::new(WIDTH, HEIGHT, surface_texture) {
+            match Pixels::new(LCD_WIDTH as u32, LCD_HEIGHT as u32, surface_texture) {
                 Ok(pixels) => {
                     window.request_redraw();
 
@@ -153,19 +156,20 @@ impl ApplicationHandler for App {
 }
 
 impl App {
-    pub fn init(terminated: Arc<AtomicBool>) -> Self {
-        let event_loop = EventLoop::new().expect("Failed to create event loop");
-        event_loop.set_control_flow(ControlFlow::Wait);
-
-        let mut app = App {
+    pub fn init(terminated: Arc<AtomicBool>, frame_receiver: Receiver<PixelData>) -> Self {
+        App {
+            frame_receiver,
             pixels: None,
             window: None,
             world: World::new(),
             terminated: terminated.clone(),
-        };
+        }
+    }
 
-        event_loop.run_app(&mut app).expect("Failed to run app");
-        app
+    pub fn run(&mut self) {
+        let event_loop = EventLoop::new().expect("Failed to create event loop");
+        event_loop.set_control_flow(ControlFlow::Wait);
+        event_loop.run_app(self).expect("Failed to run app");
     }
 }
 
@@ -182,10 +186,10 @@ impl World {
 
     /// Update the `World` internal state; bounce the box around the screen.
     fn update(&mut self) {
-        if self.box_x <= 0 || self.box_x + BOX_SIZE > WIDTH as i16 {
+        if self.box_x <= 0 || self.box_x + BOX_SIZE > LCD_WIDTH as i16 {
             self.velocity_x *= -1;
         }
-        if self.box_y <= 0 || self.box_y + BOX_SIZE > HEIGHT as i16 {
+        if self.box_y <= 0 || self.box_y + BOX_SIZE > LCD_HEIGHT as i16 {
             self.velocity_y *= -1;
         }
 
@@ -198,8 +202,8 @@ impl World {
     /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
     fn draw(&self, frame: &mut [u8]) {
         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-            let x = (i % WIDTH as usize) as i16;
-            let y = (i / WIDTH as usize) as i16;
+            let x = (i % LCD_WIDTH as usize) as i16;
+            let y = (i / LCD_WIDTH as usize) as i16;
 
             let inside_the_box = x >= self.box_x
                 && x < self.box_x + BOX_SIZE

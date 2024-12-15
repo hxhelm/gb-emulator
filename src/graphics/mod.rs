@@ -1,6 +1,6 @@
-mod core;
 mod memory;
+mod ppu;
 mod window;
 
-pub use core::*;
+pub use ppu::*;
 pub use window::App;

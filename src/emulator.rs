@@ -6,6 +6,7 @@ use std::fs;
 use std::thread::JoinHandle;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
+    sync::mpsc::{channel, Receiver, Sender},
     sync::{Arc, Mutex, RwLock},
     thread,
     time::Duration,
@@ -17,21 +18,40 @@ const PATH_DMG_BOOT_ROM: &'static str = "./boot/dmg.bin";
 pub struct EmulatorState {
     pub cpu: CPU,
     pub ppu: PPU,
-    framebuffer: PixelData,
+    pub framebuffer: Option<PixelData>,
 }
 
 impl EmulatorState {
+    pub fn init(cpu: CPU) -> Self {
+        Self {
+            cpu,
+            ppu: PPU::init(),
+            framebuffer: None,
+        }
+    }
+
     pub fn step(&mut self) {
+        if self.cpu.is_halted {
+            return;
+        }
+
         let cycles = self.cpu.step();
-        self.ppu.step(cycles, &mut self.cpu.bus);
+
+        if let Some(frame) = self.ppu.step(cycles, &mut self.cpu.bus) {
+            self.framebuffer = Some(frame);
+        }
     }
 }
 
 pub struct Emulator {
+    /// Transferable Emulator State
     pub state: Arc<RwLock<EmulatorState>>,
+    /// Emulation thread & synchronization flags
     pub emulation_thread: JoinHandle<()>,
     pub terminated: Arc<AtomicBool>,
     pub paused: Arc<AtomicBool>,
+    /// Rendering
+    app: App,
 }
 
 impl Emulator {
@@ -43,20 +63,23 @@ impl Emulator {
         let mut cpu = CPU::default();
         cpu.boot_rom(boot_rom.as_slice());
 
-        let ppu = PPU::init();
-
-        let framebuffer = [0; LCD_WIDTH * LCD_HEIGHT];
-        let state = Arc::new(RwLock::new(EmulatorState {
-            cpu,
-            ppu,
-            framebuffer,
-        }));
-
+        let state = Arc::new(RwLock::new(EmulatorState::init(cpu)));
         let terminated = Arc::new(AtomicBool::new(false));
         let paused = Arc::new(AtomicBool::new(true));
-        let emulation_thread = start_emulation(state.clone(), terminated.clone(), paused.clone());
+
+        let (frame_sender, frame_receiver) = channel();
+
+        let emulation_thread = start_emulation(
+            state.clone(),
+            terminated.clone(),
+            paused.clone(),
+            frame_sender,
+        );
+
+        let app = App::init(terminated.clone(), frame_receiver);
 
         let emulator = Emulator {
+            app,
             state,
             emulation_thread,
             terminated,
@@ -67,7 +90,7 @@ impl Emulator {
     }
 
     pub fn start(&mut self) {
-        App::init(self.terminated.clone());
+        self.app.run();
     }
 }
 
@@ -75,6 +98,7 @@ fn start_emulation(
     state: Arc<RwLock<EmulatorState>>,
     terminated: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
+    frame_sender: Sender<PixelData>,
 ) -> JoinHandle<()> {
     let state = state.clone();
     let paused_clone = Arc::clone(&paused);
@@ -84,10 +108,13 @@ fn start_emulation(
         while !terminated_clone.load(Ordering::Relaxed) {
             if !paused_clone.load(Ordering::Relaxed) {
                 let mut emulator = state.write().unwrap();
+                emulator.step();
+            }
 
-                if !emulator.cpu.is_halted {
-                    emulator.step();
-                }
+            let emulator = state.read().unwrap();
+
+            if let Some(framebuffer) = emulator.framebuffer {
+                frame_sender.send(framebuffer).unwrap();
             }
 
             thread::sleep(Duration::from_nanos(10));
