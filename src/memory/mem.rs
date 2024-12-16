@@ -1,9 +1,13 @@
+#![allow(unused)]
 use crate::graphics::PPUMode;
 
-pub const MEMORY_BUS_SIZE: usize = 0xFFFF;
+pub const MEMORY_BUS_SIZE: usize = 0xFFFF + 1;
+pub(crate) const ROM_BANK_0_START: u16 = 0x0000;
+pub(crate) const ROM_BANK_0_END: u16 = 0x3FFF;
+pub(crate) const ROM_BANK_1_START: u16 = 0x4000;
+pub(crate) const ROM_BANK_1_END: u16 = 0x7FFF;
 const VRAM_AREA_START: u16 = 0x8000;
 const VRAM_AREA_END: u16 = 0x97FF;
-const _VRAM_TILE_SIZE: u16 = 16;
 const OAM_AREA_START: u16 = 0xFE00;
 const OAM_AREA_END: u16 = 0xFE9F;
 
@@ -54,7 +58,7 @@ impl Memory {
         let address = address as usize;
         let end = address + length;
 
-        assert!(end < MEMORY_BUS_SIZE);
+        assert!(end <= MEMORY_BUS_SIZE);
 
         &self.memory[address..end]
     }

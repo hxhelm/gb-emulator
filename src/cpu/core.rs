@@ -93,10 +93,12 @@ impl CPU {
         }
     }
 
-    pub fn boot_rom(&mut self, boot_rom: &[u8]) {
-        for (i, byte) in boot_rom.iter().enumerate() {
-            self.bus.write_byte(i as u16, *byte);
-        }
+    pub fn load_cartridge(&mut self, rom: &[u8]) {
+        self.bus.write_cartridge(rom);
+    }
+
+    pub fn load_boot_rom(&mut self, boot_rom: &[u8]) {
+        self.bus.write_boot_rom(boot_rom);
     }
 
     // TODO: handle out of bound fetch

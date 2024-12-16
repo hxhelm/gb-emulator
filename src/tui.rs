@@ -21,9 +21,10 @@ use std::{
 };
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
-const MEMORY_VIEW_BLOCK_HEIGHT: usize = 20;
+const MEMORY_VIEW_BLOCK_HEIGHT: usize = 18;
 const MEMORY_SCROLL_MAX: usize =
-    MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE - MEMORY_VIEW_BLOCK_HEIGHT;
+    (MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE).saturating_sub(MEMORY_VIEW_BLOCK_HEIGHT);
+const MEMORY_BUFFER_SIZE: usize = MEMORY_VIEW_ELEMENTS_PER_LINE * MEMORY_VIEW_BLOCK_HEIGHT;
 
 struct TUI {
     memory_vertical_scroll_state: ScrollbarState,
@@ -72,20 +73,22 @@ impl TUI {
             );
         frame.render_widget(scroll_status, chunks[3]);
 
-        let memory_buffer_size = MEMORY_VIEW_ELEMENTS_PER_LINE * MEMORY_VIEW_BLOCK_HEIGHT;
-        let memory_row_offset = min(
-            MEMORY_BUS_SIZE - memory_buffer_size - 1,
-            self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE,
-        );
+        let memory_row_offset = self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE;
+        let clamped_memory_row_offset =
+            memory_row_offset.min(MEMORY_BUS_SIZE.saturating_sub(MEMORY_BUFFER_SIZE));
+        let memory_range_end =
+            (clamped_memory_row_offset + MEMORY_BUFFER_SIZE).min(MEMORY_BUS_SIZE);
+        let memory_range_length = memory_range_end.saturating_sub(clamped_memory_row_offset);
+
         let memory_text = cpu
             .bus
-            .read_range(memory_row_offset as u16, memory_buffer_size)
+            .read_range(clamped_memory_row_offset as u16, memory_range_length)
             .chunks(MEMORY_VIEW_ELEMENTS_PER_LINE)
             .enumerate()
             .map(|(i, chunk)| {
                 Line::from(format!(
                     "{:04X} | {}",
-                    memory_row_offset + i * MEMORY_VIEW_ELEMENTS_PER_LINE,
+                    clamped_memory_row_offset + i * MEMORY_VIEW_ELEMENTS_PER_LINE,
                     chunk
                         .iter()
                         .map(|&num| format!("{:02X}", num))

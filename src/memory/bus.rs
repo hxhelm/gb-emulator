@@ -1,4 +1,4 @@
-use super::mem::Memory;
+use super::mem::{Memory, ROM_BANK_0_START, ROM_BANK_1_END};
 use crate::graphics::PPUMode;
 
 #[derive(Clone, Copy, Default)]
@@ -45,5 +45,27 @@ impl Bus {
     /// Used for debugging purposes only, wrapper `Memory::read_range`
     pub fn read_range(&self, address: u16, length: usize) -> &[u8] {
         self.memory.read_range(address, length)
+    }
+
+    pub fn write_cartridge(&mut self, rom: &[u8]) {
+        let start: usize = ROM_BANK_0_START.into();
+        let end: usize = ROM_BANK_1_END.into();
+
+        let slice = &rom[start..end.min(rom.len())];
+
+        for (i, byte) in slice.iter().enumerate() {
+            self.write_byte(i as u16, *byte);
+        }
+    }
+
+    pub fn write_boot_rom(&mut self, rom: &[u8]) {
+        let start: usize = ROM_BANK_0_START.into();
+        let end = start + 256;
+
+        let slice = &rom[start..=end.min(rom.len())];
+
+        for (i, byte) in slice.iter().enumerate() {
+            self.write_byte(i as u16, *byte);
+        }
     }
 }
