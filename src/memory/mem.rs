@@ -53,6 +53,16 @@ impl Memory {
         }
     }
 
+    /// Ignores memory locations blocking by the PPU Mode, mainly used for the PPU itself
+    pub(crate) const fn read_unchecked(&self, address: u16) -> u8 {
+        self.memory[address as usize]
+    }
+
+    /// Ignores memory locations blocking by the PPU Mode, mainly used for the PPU itself
+    pub(crate) fn write_unchecked(&mut self, address: u16, byte: u8) {
+        self.memory[address as usize] = byte;
+    }
+
     /// Used for debugging purposes only
     pub(crate) fn read_range(&self, address: u16, length: usize) -> &[u8] {
         let address = address as usize;
