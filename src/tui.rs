@@ -21,14 +21,12 @@ use std::{
 };
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
-const MEMORY_VIEW_BLOCK_HEIGHT: usize = 18;
-const MEMORY_SCROLL_MAX: usize =
-    (MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE).saturating_sub(MEMORY_VIEW_BLOCK_HEIGHT);
-const MEMORY_BUFFER_SIZE: usize = MEMORY_VIEW_ELEMENTS_PER_LINE * MEMORY_VIEW_BLOCK_HEIGHT;
 
 struct TUI {
     memory_vertical_scroll_state: ScrollbarState,
     memory_vertical_scroll: usize,
+    memory_vertical_scroll_max: usize,
+    memory_view_block_height: usize,
 }
 
 impl TUI {
@@ -36,6 +34,8 @@ impl TUI {
         Self {
             memory_vertical_scroll_state: ScrollbarState::new(0),
             memory_vertical_scroll: 0,
+            memory_vertical_scroll_max: 0,
+            memory_view_block_height: 0,
         }
     }
 
@@ -73,11 +73,16 @@ impl TUI {
             );
         frame.render_widget(scroll_status, chunks[3]);
 
+        let memory_chunk = chunks[2];
+        self.memory_view_block_height = (memory_chunk.height - 2).into();
+        let memory_buffer_size: usize =
+            MEMORY_VIEW_ELEMENTS_PER_LINE * self.memory_view_block_height;
+
         let memory_row_offset = self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE;
         let clamped_memory_row_offset =
-            memory_row_offset.min(MEMORY_BUS_SIZE.saturating_sub(MEMORY_BUFFER_SIZE));
+            memory_row_offset.min(MEMORY_BUS_SIZE.saturating_sub(memory_buffer_size));
         let memory_range_end =
-            (clamped_memory_row_offset + MEMORY_BUFFER_SIZE).min(MEMORY_BUS_SIZE);
+            (clamped_memory_row_offset + memory_buffer_size).min(MEMORY_BUS_SIZE);
         let memory_range_length = memory_range_end.saturating_sub(clamped_memory_row_offset);
 
         let memory_text = cpu
@@ -101,10 +106,12 @@ impl TUI {
         self.memory_vertical_scroll_state = self
             .memory_vertical_scroll_state
             .content_length(MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE);
+        self.memory_vertical_scroll_max = (MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE)
+            .saturating_sub(self.memory_view_block_height);
 
         let memory_view = Paragraph::new(memory_text)
             .block(Block::default().borders(Borders::ALL).title("Memory"));
-        frame.render_widget(memory_view, chunks[2]);
+        frame.render_widget(memory_view, memory_chunk);
         frame.render_stateful_widget(
             Scrollbar::new(ScrollbarOrientation::VerticalRight)
                 .begin_symbol(Some("↑"))
@@ -204,7 +211,7 @@ impl Debugger {
                                 }
                                 KeyCode::Char('j') | KeyCode::Down => {
                                     tui_state.memory_vertical_scroll = min(
-                                        MEMORY_SCROLL_MAX,
+                                        tui_state.memory_vertical_scroll_max,
                                         tui_state.memory_vertical_scroll.saturating_add(1),
                                     );
                                     tui_state.memory_vertical_scroll_state = tui_state
@@ -222,10 +229,10 @@ impl Debugger {
                                 }
                                 KeyCode::Char('d') => {
                                     tui_state.memory_vertical_scroll = min(
-                                        MEMORY_SCROLL_MAX,
+                                        tui_state.memory_vertical_scroll_max,
                                         tui_state
                                             .memory_vertical_scroll
-                                            .saturating_add(MEMORY_VIEW_BLOCK_HEIGHT),
+                                            .saturating_add(tui_state.memory_view_block_height),
                                     );
                                     tui_state.memory_vertical_scroll_state = tui_state
                                         .memory_vertical_scroll_state
@@ -235,7 +242,7 @@ impl Debugger {
                                 KeyCode::Char('u') => {
                                     tui_state.memory_vertical_scroll = tui_state
                                         .memory_vertical_scroll
-                                        .saturating_sub(MEMORY_VIEW_BLOCK_HEIGHT);
+                                        .saturating_sub(tui_state.memory_view_block_height);
                                     tui_state.memory_vertical_scroll_state = tui_state
                                         .memory_vertical_scroll_state
                                         .position(tui_state.memory_vertical_scroll);
