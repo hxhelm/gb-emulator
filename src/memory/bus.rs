@@ -20,11 +20,6 @@ impl Bus {
         self.memory.read_unchecked(address)
     }
 
-    /// Ignores memory locations blocking by the PPU Mode, mainly used for the PPU itself
-    pub fn write_byte_unchecked(&mut self, address: u16, byte: u8) {
-        self.memory.write_unchecked(address, byte);
-    }
-
     pub fn read_byte_at_offset(&self, offset: u8) -> u8 {
         let address = 0xFF00 + u16::from(offset);
         self.read_byte(address)

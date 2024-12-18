@@ -55,12 +55,14 @@ impl Memory {
 
     /// Ignores memory locations blocking by the PPU Mode, mainly used for the PPU itself
     pub(crate) const fn read_unchecked(&self, address: u16) -> u8 {
-        self.memory[address as usize]
-    }
+        // let permitted = match address {
+        //     VRAM_AREA_START..VRAM_AREA_END => true,
+        //     _ => false,
+        // };
+        //
+        // assert!(permitted, "Unchecked memory access outside of VRAM area");
 
-    /// Ignores memory locations blocking by the PPU Mode, mainly used for the PPU itself
-    pub(crate) fn write_unchecked(&mut self, address: u16, byte: u8) {
-        self.memory[address as usize] = byte;
+        self.memory[address as usize]
     }
 
     /// Used for debugging purposes only

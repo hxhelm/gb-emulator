@@ -1,4 +1,5 @@
 mod memory;
+mod pixel_fetcher;
 mod ppu;
 mod window;
 

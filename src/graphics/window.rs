@@ -1,12 +1,12 @@
 #![deny(clippy::all)]
 #![allow(unused)]
 
+use crossbeam_channel::Receiver;
 use error_iter::ErrorIter as _;
 use log::{error, info};
 use pixels::{Error, Pixels, SurfaceTexture};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    mpsc::Receiver,
     Arc,
 };
 use winit::application::ApplicationHandler;
@@ -28,16 +28,6 @@ pub struct App {
     pixels: Option<Pixels>,
     terminated: Arc<AtomicBool>,
     window: Option<Arc<Window>>,
-    world: World,
-}
-
-/// Representation of the application state. In this example, a box will bounce around the screen.
-#[derive(Debug)]
-struct World {
-    box_x: i16,
-    box_y: i16,
-    velocity_x: i16,
-    velocity_y: i16,
 }
 
 impl App {
@@ -78,6 +68,34 @@ impl App {
                 }
             }
         };
+    }
+
+    fn draw_new_frame(&mut self) {
+        let Ok(new_frame) = self.frame_receiver.try_recv() else {
+            return;
+        };
+
+        while let Ok(new_frame) = self.frame_receiver.try_recv() {}
+
+        let pixels_frame = self.pixels.as_mut().unwrap().frame_mut();
+        let new_pixels = new_frame.0;
+
+        for (i, pixel) in pixels_frame.chunks_exact_mut(4).enumerate() {
+            let x = i % LCD_WIDTH;
+            let y = i / LCD_WIDTH;
+
+            let new_pixel = new_pixels[(x * 16) + y];
+
+            let rgba = match new_pixel {
+                0 => [0x0f, 0x38, 0x0f, 0xff],
+                1 => [0x30, 0x62, 0x30, 0xff],
+                2 => [0x8b, 0xac, 0x0f, 0xff],
+                3 => [0x9b, 0xbc, 0x0f, 0xff],
+                _ => [0x00, 0x00, 0x00, 0xff],
+            };
+
+            pixel.copy_from_slice(&rgba);
+        }
     }
 }
 
@@ -133,11 +151,8 @@ impl ApplicationHandler for App {
                     return;
                 }
 
-                // Update internal state
-                self.world.update();
+                self.draw_new_frame();
 
-                // Draw the current frame
-                self.world.draw(self.pixels.as_mut().unwrap().frame_mut());
                 if let Err(err) = self.pixels.as_ref().unwrap().render() {
                     log_error("pixels.render", err);
                     event_loop.exit();
@@ -161,7 +176,6 @@ impl App {
             frame_receiver,
             pixels: None,
             window: None,
-            world: World::new(),
             terminated: terminated.clone(),
         }
     }
@@ -170,54 +184,6 @@ impl App {
         let event_loop = EventLoop::new().expect("Failed to create event loop");
         event_loop.set_control_flow(ControlFlow::Wait);
         event_loop.run_app(self).expect("Failed to run app");
-    }
-}
-
-impl World {
-    /// Create a new `World` instance that can draw a moving box.
-    fn new() -> Self {
-        Self {
-            box_x: 24,
-            box_y: 16,
-            velocity_x: 1,
-            velocity_y: 1,
-        }
-    }
-
-    /// Update the `World` internal state; bounce the box around the screen.
-    fn update(&mut self) {
-        if self.box_x <= 0 || self.box_x + BOX_SIZE > LCD_WIDTH as i16 {
-            self.velocity_x *= -1;
-        }
-        if self.box_y <= 0 || self.box_y + BOX_SIZE > LCD_HEIGHT as i16 {
-            self.velocity_y *= -1;
-        }
-
-        self.box_x += self.velocity_x;
-        self.box_y += self.velocity_y;
-    }
-
-    /// Draw the `World` state to the frame buffer.
-    ///
-    /// Assumes the default texture format: `wgpu::TextureFormat::Rgba8UnormSrgb`
-    fn draw(&self, frame: &mut [u8]) {
-        for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
-            let x = (i % LCD_WIDTH as usize) as i16;
-            let y = (i / LCD_WIDTH as usize) as i16;
-
-            let inside_the_box = x >= self.box_x
-                && x < self.box_x + BOX_SIZE
-                && y >= self.box_y
-                && y < self.box_y + BOX_SIZE;
-
-            let rgba = if inside_the_box {
-                [0x5e, 0x48, 0xe8, 0xff]
-            } else {
-                [0x48, 0xb2, 0xe8, 0xff]
-            };
-
-            pixel.copy_from_slice(&rgba);
-        }
     }
 }
 

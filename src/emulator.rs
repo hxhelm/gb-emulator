@@ -2,11 +2,11 @@
 use crate::cpu::CPU;
 use crate::graphics::{App, PixelData, LCD_HEIGHT, LCD_WIDTH, PPU};
 use anyhow::Result;
+use crossbeam_channel::{bounded, Receiver, Sender, TrySendError};
 use std::fs;
 use std::thread::JoinHandle;
 use std::{
     sync::atomic::{AtomicBool, Ordering},
-    sync::mpsc::{channel, Receiver, Sender},
     sync::{Arc, Mutex, RwLock},
     thread,
     time::Duration,
@@ -37,9 +37,7 @@ impl EmulatorState {
 
         let cycles = self.cpu.step();
 
-        if let Some(frame) = self.ppu.step(cycles, &mut self.cpu.bus) {
-            self.framebuffer = Some(frame);
-        }
+        self.framebuffer = self.ppu.step(cycles, &mut self.cpu.bus);
     }
 }
 
@@ -55,19 +53,23 @@ pub struct Emulator {
 }
 
 impl Emulator {
-    // TODO: pass rom data as a parameter to this function, possibly taken as cli argument
-    pub fn init() -> Result<Self> {
+    pub fn init(cartridge_contents: Option<&[u8]>) -> Result<Self> {
+        let mut cpu = CPU::default();
+
+        if let Some(rom) = cartridge_contents {
+            cpu.load_cartridge(rom);
+        }
+
         let boot_rom_path = PATH_DMG_BOOT_ROM;
         let boot_rom = fs::read(boot_rom_path)?;
 
-        let mut cpu = CPU::default();
-        cpu.boot_rom(boot_rom.as_slice());
+        cpu.load_boot_rom(boot_rom.as_slice());
 
         let state = Arc::new(RwLock::new(EmulatorState::init(cpu)));
         let terminated = Arc::new(AtomicBool::new(false));
         let paused = Arc::new(AtomicBool::new(true));
 
-        let (frame_sender, frame_receiver) = channel();
+        let (frame_sender, frame_receiver) = bounded(10);
 
         let emulation_thread = start_emulation(
             state.clone(),
@@ -112,7 +114,6 @@ fn start_emulation(
             }
 
             let emulator = state.read().unwrap();
-
             if let Some(framebuffer) = emulator.framebuffer {
                 frame_sender.send(framebuffer).unwrap();
             }

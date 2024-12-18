@@ -1,6 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 use anyhow::Result;
 use emulator::Emulator;
+use std::{env, fs};
 use tui::Debugger;
 
 mod cpu;
@@ -12,7 +13,13 @@ mod tui;
 fn main() -> Result<()> {
     color_eyre::install().unwrap();
 
-    let mut emulator = Emulator::init()?;
+    let args: Vec<String> = env::args().collect();
+
+    let cartridge_contents = args
+        .get(1)
+        .map(|bin_path| fs::read(bin_path).expect("Failed to cartridge binary path."));
+
+    let mut emulator = Emulator::init(cartridge_contents.as_deref())?;
     let debugger = Debugger::new(
         emulator.state.clone(),
         emulator.terminated.clone(),

@@ -111,52 +111,36 @@ impl Bus {
     }
 }
 
-pub(crate) enum TileAreaAddressingMethod {
+pub(crate) enum TileDataArea {
     /// 0x8000 method: unsigned addressing, tiles 0-127 -> block 0, tiles 128-255 -> block 1
     Method8000,
     /// 0x8800 method: signed addressing, tiles 0-127 -> block 2, tiles 128-255 -> block 1
     Method8800,
 }
 
-impl TileAreaAddressingMethod {
-    fn get_tile_block(&self, tile_index: u8) -> (u16, u16) {
+impl TileDataArea {
+    pub(crate) fn get_tile_address(&self, tile_number: u8) -> u16 {
         match self {
-            TileAreaAddressingMethod::Method8000 => {
-                let block = (tile_index / 128) as u16;
-                let offset = (tile_index % 128) as u16;
-                (block, offset)
+            TileDataArea::Method8000 => {
+                // Tiles 0–255, starting at 0x8000
+                0x8000 + (tile_number as u16) * 16
             }
-            TileAreaAddressingMethod::Method8800 => {
-                let signed_tile = tile_index as i8;
-                if signed_tile >= 0 {
-                    // Tiles 0-127
-                    (2, signed_tile as u16)
-                } else {
-                    // Tiles -128 to -1 (interpreted as 128-255)
-                    (1, (signed_tile as i16 + 128) as u16)
-                }
+            TileDataArea::Method8800 => {
+                // Tiles -128 to 127 (signed), starting at 0x8800
+                let signed_tile = tile_number as i8; // Interpret as signed
+                0x9000u16.wrapping_add_signed((signed_tile as i16) * 16) as u16
             }
         }
-    }
-
-    pub(crate) fn get_tile_address(&self, tile_number: u8) -> u16 {
-        let base_address = match self {
-            TileAreaAddressingMethod::Method8000 => 0x8000,
-            TileAreaAddressingMethod::Method8800 => 0x9000,
-        };
-
-        let (block, offset) = self.get_tile_block(tile_number);
-        base_address + block * 128 + offset
     }
 }
 
 impl Bus {
     /// LCDC.4: Returns window & background tile data area address mode
-    pub(crate) fn get_bg_window_tile_data_area(&self) -> TileAreaAddressingMethod {
+    pub(crate) fn get_bg_window_tile_data_area(&self) -> TileDataArea {
         if self.get_lcdc_bit(LCDC_BIT_BG_WINDOW_TILE_DATA_AREA) {
-            TileAreaAddressingMethod::Method8000
+            TileDataArea::Method8000
         } else {
-            TileAreaAddressingMethod::Method8800
+            TileDataArea::Method8800
         }
     }
 
@@ -201,6 +185,8 @@ const _LCD_Y_COMPARE: u16 = 0xFF45;
 const _LCD_STAT: u16 = 0xFF41;
 const WINDOW_Y: u16 = 0xFF4A;
 const WINDOW_X: u16 = 0xFF4A;
+const SCROLL_X: u16 = 0xFF43;
+const SCROLL_Y: u16 = 0xFF42;
 
 impl Bus {
     pub(crate) fn lcd_update_line(&mut self) {
@@ -212,11 +198,19 @@ impl Bus {
         self.read_byte(LCD_Y)
     }
 
-    pub(crate) fn window_y(&self) -> u8 {
+    pub(crate) fn get_window_y(&self) -> u8 {
         self.read_byte(WINDOW_Y)
     }
 
-    pub(crate) fn window_x(&self) -> u8 {
+    pub(crate) fn get_window_x(&self) -> u8 {
         self.read_byte(WINDOW_X).saturating_sub(7)
+    }
+
+    pub(crate) fn get_scroll_x(&self) -> u8 {
+        self.read_byte_unchecked(SCROLL_X)
+    }
+
+    pub(crate) fn get_scroll_y(&self) -> u8 {
+        self.read_byte_unchecked(SCROLL_Y)
     }
 }
