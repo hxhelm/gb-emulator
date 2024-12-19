@@ -118,7 +118,7 @@ fn start_emulation(
                 frame_sender.send(framebuffer).unwrap();
             }
 
-            thread::sleep(Duration::from_nanos(10));
+            thread::sleep(Duration::from_nanos(100));
         }
     })
 }

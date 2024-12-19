@@ -27,6 +27,8 @@ pub enum Instruction {
     Ld(LD),
     Ldh(LDH),
     Nop(NOP),
+    Halt(HALT),
+    Stop(STOP),
     Di(DI),
     Ei(EI),
     Jp(JP),
@@ -78,6 +80,8 @@ impl Executable for Instruction {
             Self::Ld(instruction) => instruction.execute(cpu),
             Self::Ldh(instruction) => instruction.execute(cpu),
             Self::Nop(instruction) => instruction.execute(cpu),
+            Self::Halt(instruction) => instruction.execute(cpu),
+            Self::Stop(instruction) => instruction.execute(cpu),
             Self::Di(instruction) => instruction.execute(cpu),
             Self::Ei(instruction) => instruction.execute(cpu),
             Self::Jp(instruction) => instruction.execute(cpu),
@@ -852,7 +856,7 @@ impl Executable for NOP {
     }
 }
 
-pub(crate) struct STOP(u8);
+pub(crate) struct STOP(pub(crate) u8);
 
 impl Executable for STOP {
     fn execute(&self, _cpu: &mut CPU) -> u8 {

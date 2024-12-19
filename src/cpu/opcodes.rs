@@ -216,6 +216,8 @@ pub(crate) fn get_instruction(data: &InstructionData) -> (Instruction, u16) {
         0x37 => (Instruction::Scf(SCF), 1),
         0x3F => (Instruction::Ccf(CCF), 1),
         0x00 => (Instruction::Nop(NOP), 1),
+        0x10 => (Instruction::Stop(STOP(*param1)), 1),
+        0x76 => (Instruction::Halt(HALT), 1),
         0xF3 => (Instruction::Di(DI), 1),
         0xFB => (Instruction::Ei(EI), 1),
         0xC2 => (Instruction::Jp(JP::ConditionalConstant(FlagCondition::NotZero, get_a16())), 3),
