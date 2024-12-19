@@ -130,7 +130,7 @@ impl PixelFetcher {
         *self = Self::init();
         self.current_line = bus.lcd_current_line();
         self.discard_counter = bus.get_scroll_x() % 8;
-        eprintln!("FIFO line reset!");
+        eprintln!("FIFO line reset!, Line: {}", self.current_line);
     }
 
     pub fn step(&mut self, bus: &mut Bus, passed_t_cycles: u8, current_frame: &mut PixelData) {
@@ -247,11 +247,11 @@ impl PixelFetcher {
 
     fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) {
         if self.discard_counter > 0 {
-            // eprintln!("PixelFetcher::Pixel::Discard");
-            self.discard_counter -= 1;
+            if self.background_queue.pop().is_ok() {
+                // eprintln!("PixelFetcher::Pixel::Discard");
 
-            if self.discard_counter == 0 {
-                self.render_x = (self.render_x + 1) % 32;
+                self.discard_counter -= 1;
+                self.render_x += 1;
             }
 
             return;
@@ -264,6 +264,10 @@ impl PixelFetcher {
         // eprintln!("PixelFetcher::Pixel::PushedToScreen");
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = bg_pixel;
+
+        if bg_pixel != 0 {
+            eprintln!("Wrote non-zero pixel! {:04X}", bg_pixel);
+        }
 
         self.render_x += 1;
     }

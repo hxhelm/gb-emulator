@@ -57,8 +57,9 @@ impl PPU {
         }
     }
 
-    fn check_mode_change(self, timer: u16) -> (bool, u16) {
+    fn check_mode_change(self) -> (bool, u16) {
         let send_pixel_timer: u16 = (172 + self.scanline_x_scroll % 8).into();
+        let timer = self.mode_timer;
 
         match self.mode {
             PPUMode::OBJSearch if timer >= 80 => (true, timer - 80),
@@ -70,23 +71,39 @@ impl PPU {
         }
     }
 
-    fn change_mode(&mut self, current_line: u8) {
+    fn change_mode(&mut self, bus: &mut Bus) {
         self.mode = match self.mode {
-            PPUMode::OBJSearch => PPUMode::SendPixels,
-            PPUMode::SendPixels => PPUMode::HorizontalBlank,
+            PPUMode::OBJSearch => {
+                // eprintln!("PPMode::SendPixels");
+                self.scanline_x_scroll = bus.get_scroll_x();
+                self.pixel_fetcher.reset_line(bus);
+                PPUMode::SendPixels
+            }
+            PPUMode::SendPixels => {
+                // eprintln!("PPMode::HBlank");
+                PPUMode::HorizontalBlank
+            }
             PPUMode::HorizontalBlank => {
-                if current_line == 143 {
+                bus.lcd_update_line();
+
+                if bus.lcd_current_line() == 143 {
+                    // eprintln!("PPMode::VBlank");
                     PPUMode::VerticalBlank
                 } else {
+                    // eprintln!("PPMode::OBJSearch");
                     PPUMode::OBJSearch
                 }
             }
             PPUMode::VerticalBlank => {
-                if current_line <= 153 {
-                    PPUMode::VerticalBlank
-                } else {
+                bus.lcd_update_line();
+
+                if bus.lcd_current_line() == 0 {
+                    // eprintln!("PPMode::OBJSearch");
                     self.screen_finished = true;
                     PPUMode::OBJSearch
+                } else {
+                    // eprintln!("PPMode::VBlank");
+                    PPUMode::VerticalBlank
                 }
             }
         };
@@ -95,21 +112,16 @@ impl PPU {
     pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) -> Option<PixelData> {
         self.mode_timer = self.mode_timer.saturating_add(t_cycles.into());
 
-        let (should_change_mode, remaining_cycles) = self.check_mode_change(self.mode_timer);
+        let (should_change_mode, remaining_cycles) = self.check_mode_change();
+
+        if matches!(self.mode, PPUMode::SendPixels) && remaining_cycles != 0 {
+            self.pixel_fetcher
+                .step(bus, remaining_cycles as u8, &mut self.current_frame);
+        }
+
         if should_change_mode {
             self.mode_timer = remaining_cycles;
-
-            if matches!(self.mode, PPUMode::SendPixels) {
-                self.pixel_fetcher
-                    .step(bus, remaining_cycles as u8, &mut self.current_frame);
-            }
-
-            self.change_mode(bus.lcd_current_line());
-
-            if matches!(self.mode, PPUMode::OBJSearch | PPUMode::VerticalBlank) {
-                self.update_scanline(bus);
-            }
-
+            self.change_mode(bus);
             bus.update_ppu_mode(self.mode);
         }
 
@@ -127,11 +139,5 @@ impl PPU {
         } else {
             None
         }
-    }
-
-    fn update_scanline(&mut self, bus: &mut Bus) {
-        bus.lcd_update_line();
-        self.scanline_x_scroll = bus.get_scroll_x();
-        self.pixel_fetcher.reset_line(bus);
     }
 }

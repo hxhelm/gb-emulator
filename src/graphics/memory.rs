@@ -191,7 +191,7 @@ const SCROLL_Y: u16 = 0xFF42;
 impl Bus {
     pub(crate) fn lcd_update_line(&mut self) {
         let ly = self.read_byte(LCD_Y);
-        self.write_byte(LCD_Y, (ly + 1) % 155)
+        self.write_byte(LCD_Y, (ly + 1) % 154)
     }
 
     pub(crate) fn lcd_current_line(&self) -> u8 {
@@ -207,10 +207,10 @@ impl Bus {
     }
 
     pub(crate) fn get_scroll_x(&self) -> u8 {
-        self.read_byte_unchecked(SCROLL_X)
+        self.read_byte(SCROLL_X)
     }
 
     pub(crate) fn get_scroll_y(&self) -> u8 {
-        self.read_byte_unchecked(SCROLL_Y)
+        self.read_byte(SCROLL_Y)
     }
 }
