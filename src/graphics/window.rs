@@ -84,9 +84,7 @@ impl App {
             let x = i % LCD_WIDTH;
             let y = i / LCD_WIDTH;
 
-            let new_pixel = new_pixels[(x * 16) + y];
-
-            let rgba = match new_pixel {
+            let rgba = match new_pixels[i] {
                 0 => [0x0f, 0x38, 0x0f, 0xff],
                 1 => [0x30, 0x62, 0x30, 0xff],
                 2 => [0x8b, 0xac, 0x0f, 0xff],

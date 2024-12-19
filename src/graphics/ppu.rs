@@ -74,23 +74,17 @@ impl PPU {
     fn change_mode(&mut self, bus: &mut Bus) {
         self.mode = match self.mode {
             PPUMode::OBJSearch => {
-                // eprintln!("PPMode::SendPixels");
                 self.scanline_x_scroll = bus.get_scroll_x();
                 self.pixel_fetcher.reset_line(bus);
                 PPUMode::SendPixels
             }
-            PPUMode::SendPixels => {
-                // eprintln!("PPMode::HBlank");
-                PPUMode::HorizontalBlank
-            }
+            PPUMode::SendPixels => PPUMode::HorizontalBlank,
             PPUMode::HorizontalBlank => {
                 bus.lcd_update_line();
 
                 if bus.lcd_current_line() == 143 {
-                    // eprintln!("PPMode::VBlank");
                     PPUMode::VerticalBlank
                 } else {
-                    // eprintln!("PPMode::OBJSearch");
                     PPUMode::OBJSearch
                 }
             }
@@ -98,11 +92,9 @@ impl PPU {
                 bus.lcd_update_line();
 
                 if bus.lcd_current_line() == 0 {
-                    // eprintln!("PPMode::OBJSearch");
                     self.screen_finished = true;
                     PPUMode::OBJSearch
                 } else {
-                    // eprintln!("PPMode::VBlank");
                     PPUMode::VerticalBlank
                 }
             }
@@ -134,7 +126,6 @@ impl PPU {
             let framebuffer = Some(self.current_frame);
             self.current_frame = PixelData::default();
             self.screen_finished = false;
-            eprintln!("===Screen finished===");
             framebuffer
         } else {
             None

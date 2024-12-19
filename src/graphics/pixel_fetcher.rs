@@ -9,6 +9,7 @@ const SCROLL_X: u16 = 0xFF43;
 const SCROLL_Y: u16 = 0xFF42;
 const WINDOW_X: u16 = 0xFF4B;
 const WINDOW_Y: u16 = 0xFF4A;
+const TILE_SIZE: u8 = 8;
 
 impl Bus {
     /// Calculate the bottom right coordinate of the viewport using the scroll registers.
@@ -129,8 +130,7 @@ impl PixelFetcher {
     pub fn reset_line(&mut self, bus: &Bus) {
         *self = Self::init();
         self.current_line = bus.lcd_current_line();
-        self.discard_counter = bus.get_scroll_x() % 8;
-        eprintln!("FIFO line reset!, Line: {}", self.current_line);
+        self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
 
     pub fn step(&mut self, bus: &mut Bus, passed_t_cycles: u8, current_frame: &mut PixelData) {
@@ -139,7 +139,6 @@ impl PixelFetcher {
         while t_counter < passed_t_cycles {
             let (next_step, spent_cycles) = match self.current_step {
                 PixelFetcherStep::Sleep(counter) => {
-                    // eprintln!("PixelFetcher::Sleep");
                     if counter == 1 {
                         (PixelFetcherStep::GetTile, 1)
                     } else {
@@ -147,29 +146,22 @@ impl PixelFetcher {
                     }
                 }
                 PixelFetcherStep::GetTile => {
-                    // eprintln!("PixelFetcher::GetTile");
                     self.tile_number = self.fetch_tile_number(bus);
                     (PixelFetcherStep::GetTileDataLow, 2)
                 }
                 PixelFetcherStep::GetTileDataLow => {
-                    // eprintln!("PixelFetcher::DataLow");
                     self.tile_data_low = self.fetch_tile_data_low(bus);
                     (PixelFetcherStep::GetTileDataHigh, 2)
                 }
                 PixelFetcherStep::GetTileDataHigh => {
-                    // eprintln!("PixelFetcher::DataHigh");
                     self.tile_data_high = self.fetch_tile_data_high(bus);
                     (PixelFetcherStep::Push, 2)
                 }
                 PixelFetcherStep::Push => {
                     if self.background_queue.is_empty() {
-                        // eprintln!("PixelFetcher::Push::PushedToQueue");
-                        self.background_queue.push(self.get_pixel_from_tile());
-                        self.fetcher_x = (self.fetcher_x + 1) % 32;
-
+                        self.push_pixel_data_to_queue();
                         (PixelFetcherStep::GetTile, 2)
                     } else {
-                        // eprintln!("PixelFetcher::Push::QueueNotEmpty");
                         (PixelFetcherStep::Push, 1)
                     }
                 }
@@ -177,7 +169,7 @@ impl PixelFetcher {
 
             self.current_step = next_step;
 
-            for _ in (0..=spent_cycles) {
+            for _ in (0..spent_cycles) {
                 self.try_push_pixel_to_screen(current_frame);
             }
 
@@ -188,21 +180,13 @@ impl PixelFetcher {
     fn fetch_tile_number(&self, bus: &Bus) -> u8 {
         // TODO: window handling
 
-        let x_offset: u16 = ((self.fetcher_x.wrapping_add(bus.get_scroll_x() / 8)) % 32).into();
-        let y_offset: u16 = ((self.current_line.wrapping_add(bus.get_scroll_y())) / 8).into();
+        let x_offset: u16 =
+            ((self.fetcher_x.wrapping_add(bus.get_scroll_x() / TILE_SIZE)) % 32).into();
+        let y_offset: u16 =
+            ((self.current_line.wrapping_add(bus.get_scroll_y())) / TILE_SIZE).into();
 
-        let tilemap_start_address = bus.get_bg_tile_map().start();
-
-        let tilemap_address = tilemap_start_address + (y_offset * 32) + x_offset;
-
-        let tile_number = bus.read_byte_unchecked(tilemap_address);
-
-        eprintln!(
-            "TMS: 0x{:04X}, TMA: 0x{:04X}, TN: {}",
-            tilemap_start_address, tilemap_address, tile_number
-        );
-
-        tile_number
+        let tilemap_address = bus.get_bg_tile_map().start() + (y_offset * 32) + x_offset;
+        bus.read_byte_unchecked(tilemap_address)
     }
 
     /// Access the current 32x32 tile map by their index. The current tile map is detected
@@ -210,17 +194,14 @@ impl PixelFetcher {
     /// Returns the lower byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_low(&mut self, bus: &Bus) -> u8 {
-        let address_raw = bus
+        let address = bus
             .get_bg_window_tile_data_area()
             .get_tile_address(self.tile_number);
 
-        self.tile_data_address = address_raw as u16;
+        let offset = 2 * (self.current_line.wrapping_add(bus.get_scroll_y()) % TILE_SIZE);
+        self.tile_data_address = address + offset as u16;
 
-        let data = bus.read_byte_unchecked(self.tile_data_address);
-
-        eprintln!("TAddr: {:04X}, TData: {:04X}", self.tile_data_address, data);
-
-        data
+        bus.read_byte_unchecked(self.tile_data_address)
     }
 
     /// Read the next byte at the address set in `fetch_tile_data_low`
@@ -228,32 +209,24 @@ impl PixelFetcher {
     /// index.
     fn fetch_tile_data_high(&self, bus: &Bus) -> u8 {
         let addr_high = self.tile_data_address + 1;
-        let data = bus.read_byte_unchecked(addr_high);
-
-        eprintln!("TAddr: {:04X}, TData: {:04X}", addr_high, data);
-
-        data
+        bus.read_byte_unchecked(addr_high)
     }
 
-    fn get_pixel_from_tile(&self) -> u8 {
-        let offset = self.fetcher_x % 8;
-        let bit_mask = 0b00000001;
+    fn push_pixel_data_to_queue(&mut self) {
+        for i in 0..TILE_SIZE {
+            let offset = 7 - i;
+            let high = (self.tile_data_high >> offset) & 1;
+            let low = (self.tile_data_low >> offset) & 1;
+            self.background_queue.push((high << 1) | low);
+        }
 
-        let low = (self.tile_data_low & bit_mask) >> offset;
-        let high = (self.tile_data_high & bit_mask) >> offset;
-
-        low | (high << 1)
+        self.fetcher_x += 1;
     }
 
     fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) {
-        if self.discard_counter > 0 {
-            if self.background_queue.pop().is_ok() {
-                // eprintln!("PixelFetcher::Pixel::Discard");
-
-                self.discard_counter -= 1;
-                self.render_x += 1;
-            }
-
+        if self.discard_counter > 0 && self.background_queue.pop().is_ok() {
+            self.discard_counter -= 1;
+            self.render_x += 1;
             return;
         }
 
@@ -261,13 +234,8 @@ impl PixelFetcher {
             return;
         };
 
-        // eprintln!("PixelFetcher::Pixel::PushedToScreen");
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = bg_pixel;
-
-        if bg_pixel != 0 {
-            eprintln!("Wrote non-zero pixel! {:04X}", bg_pixel);
-        }
 
         self.render_x += 1;
     }
