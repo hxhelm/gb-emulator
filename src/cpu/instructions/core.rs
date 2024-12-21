@@ -644,9 +644,9 @@ impl Executable for CALL {
 
 impl CPU {
     fn call_address(&mut self, address: u16) {
-        // with CALL instructions being 3 bytes long, we add the address of the instruction
-        // following the CALL instruction to the stack
-        self.push_to_stack(self.registers.pc.wrapping_add(3));
+        // we simply push the current PC because the PC is incremented in `CPU::step` before
+        // instruction execution
+        self.push_to_stack(self.registers.pc);
         self.registers.pc = address;
     }
 }
