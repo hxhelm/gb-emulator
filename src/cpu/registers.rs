@@ -41,7 +41,7 @@ impl From<u8> for Flags {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub(crate) struct Registers {
     pub(crate) a: u8,
     pub(crate) b: u8,
@@ -53,6 +53,23 @@ pub(crate) struct Registers {
     pub(crate) l: u8,
     pub(crate) sp: u16,
     pub(crate) pc: u16,
+}
+
+impl Default for Registers {
+    fn default() -> Self {
+        Self {
+            a: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            f: Flags::default(),
+            h: 0,
+            l: 0,
+            sp: 0xFFFE,
+            pc: 0,
+        }
+    }
 }
 
 pub(crate) enum R8 {
