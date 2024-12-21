@@ -153,7 +153,7 @@ impl Executable for ADD {
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
-                cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(cpu.registers.a, value);
 
                 cpu.registers.a = result;
                 target.cycles()
@@ -167,7 +167,7 @@ impl Executable for ADD {
 
                 cpu.registers.f.negative = false;
                 cpu.registers.f.carry = did_overflow;
-                cpu.registers.f.half_carry = half_carry_set_u16(cpu.read_hl(), value);
+                cpu.registers.f.half_carry = half_carry_set_add_u16(cpu.read_hl(), value);
 
                 cpu.write_hl(result);
                 8
@@ -179,7 +179,7 @@ impl Executable for ADD {
                 cpu.registers.f.negative = false;
 
                 let sp_u8 = cpu.registers.sp as u8;
-                cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(sp_u8, *offset);
                 cpu.registers.f.carry = (result as u8) < sp_u8;
 
                 cpu.registers.sp = result;
@@ -196,13 +196,13 @@ impl Executable for ADC {
         let carry_val: u8 = if cpu.registers.f.carry { 1 } else { 0 };
         let value = cpu.read_bytetarget(&self.0);
 
-        let (value, carry_overflow) = carry_val.overflowing_add(value);
-        let (result, did_overflow) = cpu.registers.a.overflowing_add(value);
+        let (result, carry_overflow) = cpu.registers.a.overflowing_add(carry_val);
+        let (result, did_overflow) = result.overflowing_add(value);
 
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.negative = false;
         cpu.registers.f.carry = did_overflow | carry_overflow;
-        cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, result);
+        cpu.registers.f.half_carry = half_carry_set_adc_u8(cpu.registers.a, value, carry_val);
 
         cpu.registers.a = result;
         self.0.cycles()
@@ -219,7 +219,7 @@ impl Executable for SUB {
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.negative = true;
         cpu.registers.f.carry = did_overflow;
-        cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
+        cpu.registers.f.half_carry = half_carry_set_sub_u8(cpu.registers.a, value);
 
         cpu.registers.a = result;
         self.0.cycles()
@@ -233,13 +233,13 @@ impl Executable for SBC {
         let carry_val: u8 = if cpu.registers.f.carry { 1 } else { 0 };
         let value = cpu.read_bytetarget(&self.0);
 
-        let (value, carry_overflow) = carry_val.overflowing_sub(value);
-        let (result, did_overflow) = cpu.registers.a.overflowing_sub(value);
+        let (result, carry_overflow) = cpu.registers.a.overflowing_sub(carry_val);
+        let (result, did_overflow) = result.overflowing_sub(value);
 
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.negative = true;
         cpu.registers.f.carry = did_overflow | carry_overflow;
-        cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, result);
+        cpu.registers.f.half_carry = half_carry_set_sbc_u8(cpu.registers.a, value, carry_val);
 
         cpu.registers.a = result;
         self.0.cycles()
@@ -307,7 +307,7 @@ impl Executable for CP {
         cpu.registers.f.zero = result == 0;
         cpu.registers.f.negative = true;
         cpu.registers.f.carry = did_overflow;
-        cpu.registers.f.half_carry = half_carry_set_u8(cpu.registers.a, value);
+        cpu.registers.f.half_carry = half_carry_set_sub_u8(cpu.registers.a, value);
         self.0.cycles()
     }
 }
@@ -328,7 +328,7 @@ impl Executable for INC {
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
-                cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
 
                 cpu.write_r8(register, result);
                 4
@@ -339,7 +339,7 @@ impl Executable for INC {
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
-                cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
 
                 cpu.write_hl_ptr(result);
                 12
@@ -376,7 +376,7 @@ impl Executable for DEC {
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = true;
-                cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
 
                 cpu.write_r8(register, result);
                 4
@@ -387,7 +387,7 @@ impl Executable for DEC {
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = true;
-                cpu.registers.f.half_carry = half_carry_set_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
 
                 cpu.write_hl_ptr(result);
                 12
@@ -785,7 +785,7 @@ impl Executable for LD {
                 cpu.registers.f.negative = false;
 
                 let sp_u8 = cpu.registers.sp as u8;
-                cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
+                cpu.registers.f.half_carry = half_carry_set_add_u8(sp_u8, *offset);
                 cpu.registers.f.carry = (result as u8) < sp_u8;
 
                 cpu.write_hl(result);
@@ -892,12 +892,24 @@ impl Executable for EI {
     }
 }
 
-fn half_carry_set_u8(a: u8, b: u8) -> bool {
-    (((a & 0xF) + (b & 0xF)) & 0x10) == 0x10
+fn half_carry_set_add_u8(a: u8, b: u8) -> bool {
+    ((a & 0xF) + (b & 0xF)) & 0x10 == 0x10
 }
 
-fn half_carry_set_u16(a: u16, b: u16) -> bool {
-    (((a & 0xFFF) + (b & 0xFFF)) & 0x1000) == 0x1000
+fn half_carry_set_adc_u8(a: u8, b: u8, carry: u8) -> bool {
+    ((a & 0xF) + (b & 0xF) + (carry & 0xF)) & 0x10 == 0x10
+}
+
+fn half_carry_set_sub_u8(a: u8, b: u8) -> bool {
+    (((a & 0xF).wrapping_sub(b & 0xF)) & 0x10) == 0x10
+}
+
+fn half_carry_set_sbc_u8(a: u8, b: u8, carry: u8) -> bool {
+    (a & 0xF).wrapping_sub(b & 0xF).wrapping_sub(carry & 0xF) & 0x10 == 0x10
+}
+
+fn half_carry_set_add_u16(a: u16, b: u16) -> bool {
+    ((a & 0xFFF) + (b & 0xFFF)) & 0x1000 == 0x1000
 }
 
 #[cfg(test)]
