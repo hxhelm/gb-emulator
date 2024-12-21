@@ -123,13 +123,42 @@ impl CPU {
 
         // test rom serial output
         if self.bus.read_byte(0xFF02) == 0x81 {
-            eprintln!("{}", self.bus.read_byte(0xFF01));
-            self.bus.write_byte(0xFF01, 0x00);
+            let character = self.bus.read_byte(0xFF01);
+            if character != 0x00 {
+                eprint!("{}", character as char);
+                self.bus.write_byte(0xFF01, 0x00);
+            }
         }
 
         // TODO: handle interrupts
 
         t_cycles
+    }
+
+    #[allow(unused)]
+    fn log_state(&self) {
+        eprint!("A: {:02X} ", self.registers.a);
+        let f: u8 = (&self.registers.f).into();
+        eprint!("F: {:02X} ", f);
+        eprint!("B: {:02X} ", self.registers.b);
+        eprint!("C: {:02X} ", self.registers.c);
+        eprint!("D: {:02X} ", self.registers.d);
+        eprint!("E: {:02X} ", self.registers.e);
+        eprint!("H: {:02X} ", self.registers.h);
+        eprint!("L: {:02X} ", self.registers.l);
+
+        eprint!("SP: {:004X} ", self.registers.sp);
+
+        eprint!("PC: 00:{:004X} ", self.registers.pc);
+
+        let bytes = self.bus.read_range(self.registers.pc, 4);
+
+        assert_eq!(bytes.len(), 4);
+
+        eprint!(
+            "({:02X} {:02X} {:02X} {:02X})\n",
+            bytes[0], bytes[1], bytes[2], bytes[3]
+        );
     }
 }
 

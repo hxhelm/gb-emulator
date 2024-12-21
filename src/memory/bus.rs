@@ -67,7 +67,7 @@ impl Bus {
         let start: usize = ROM_BANK_0_START.into();
         let end = start + 256;
 
-        let slice = &rom[start..=end.min(rom.len())];
+        let slice = &rom[start..end.min(rom.len())];
 
         for (i, byte) in slice.iter().enumerate() {
             self.write_byte(i as u16, *byte);
