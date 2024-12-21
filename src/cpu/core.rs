@@ -136,7 +136,7 @@ impl CPU {
     }
 
     #[allow(unused)]
-    fn log_state(&self) {
+    pub fn log_state(&self) {
         eprint!("A: {:02X} ", self.registers.a);
         let f: u8 = (&self.registers.f).into();
         eprint!("F: {:02X} ", f);

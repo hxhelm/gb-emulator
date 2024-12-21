@@ -173,17 +173,14 @@ impl Executable for ADD {
                 8
             }
             ADD::StackPointer(offset) => {
-                let (result, did_overflow) = cpu
-                    .registers
-                    .sp
-                    .overflowing_add_signed((*offset as i8).into());
+                let result = cpu.registers.sp.wrapping_add_signed((*offset as i8).into());
 
                 cpu.registers.f.zero = false;
                 cpu.registers.f.negative = false;
-                cpu.registers.f.carry = did_overflow;
 
-                let sp_u8 = ((cpu.registers.sp & 0xFF00) >> 8) as u8;
+                let sp_u8 = cpu.registers.sp as u8;
                 cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
+                cpu.registers.f.carry = (result as u8) < sp_u8;
 
                 cpu.registers.sp = result;
                 16
@@ -782,16 +779,16 @@ impl Executable for LD {
                 8
             }
             LD::LoadSPToHL(offset) => {
-                let (sp, did_overflow) = cpu
-                    .registers
-                    .sp
-                    .overflowing_add_signed((*offset as i8).into());
+                let result = cpu.registers.sp.wrapping_add_signed((*offset as i8).into());
 
-                cpu.registers.f.carry = did_overflow;
-                let sp_u8 = ((cpu.registers.sp & 0xFF00) >> 8) as u8;
+                cpu.registers.f.zero = false;
+                cpu.registers.f.negative = false;
+
+                let sp_u8 = cpu.registers.sp as u8;
                 cpu.registers.f.half_carry = half_carry_set_u8(sp_u8, *offset);
+                cpu.registers.f.carry = (result as u8) < sp_u8;
 
-                cpu.write_hl(sp);
+                cpu.write_hl(result);
                 12
             }
             LD::StoreA(target) => {
