@@ -48,8 +48,8 @@ pub struct PPU {
 impl PPU {
     pub fn init() -> PPU {
         Self {
-            mode: PPUMode::OBJSearch,
-            mode_timer: 0,
+            mode: PPUMode::VerticalBlank,
+            mode_timer: CYCLES_PER_LINE,
             current_frame: PixelData::default(),
             pixel_fetcher: PixelFetcher::init(),
             screen_finished: false,
