@@ -121,6 +121,12 @@ impl CPU {
         self.clock.increment(t_cycles);
         self.update_timers();
 
+        // test rom serial output
+        if self.bus.read_byte(0xFF02) == 0x81 {
+            eprintln!("{}", self.bus.read_byte(0xFF01));
+            self.bus.write_byte(0xFF01, 0x00);
+        }
+
         // TODO: handle interrupts
 
         t_cycles
