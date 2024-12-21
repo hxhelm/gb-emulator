@@ -481,16 +481,17 @@ impl Executable for RLA {
 
 pub(crate) struct DAA;
 
+// Special thanks to https://blog.ollien.com/posts/gb-daa/
 impl Executable for DAA {
     fn execute(&self, cpu: &mut CPU) -> u8 {
         let a = cpu.registers.a;
         let mut correction = 0;
 
-        if (a & 0x0F) > 0x09 || cpu.registers.f.half_carry {
+        if cpu.registers.f.half_carry || (!cpu.registers.f.negative && (a & 0x0F) > 0x09) {
             correction |= 0x06;
         }
 
-        if (a & 0xF0) > 0x90 || cpu.registers.f.carry {
+        if cpu.registers.f.carry || (!cpu.registers.f.negative && a > 0x99) {
             correction |= 0x60;
         }
 
