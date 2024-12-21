@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use crate::memory::bus::Bus;
 
-use super::{PixelData, LCD_WIDTH};
+use super::{fifo::Fifo, PixelData, LCD_WIDTH};
 
 const SCROLL_X: u16 = 0xFF43;
 const SCROLL_Y: u16 = 0xFF42;
@@ -17,64 +17,6 @@ impl Bus {
         let x = self.get_scroll_x() as u16;
         let y = self.get_scroll_y() as u16;
         ((y + 143) % 256, (x + 159) % 256)
-    }
-}
-
-#[derive(Copy, Clone)]
-struct Fifo {
-    queue: [u8; 16],
-    index: usize,
-    length: usize,
-}
-
-impl Fifo {
-    pub fn new() -> Self {
-        Self {
-            queue: [0; 16],
-            index: 0,
-            length: 0,
-        }
-    }
-
-    pub fn push(&mut self, value: u8) -> Result<(), &'static str> {
-        if self.length == self.queue.len() {
-            return Err("Queue is full");
-        }
-
-        let insert_pos = (self.index + self.length) % self.queue.len();
-        self.queue[insert_pos] = value;
-        self.length += 1;
-
-        Ok(())
-    }
-
-    pub fn pop(&mut self) -> Result<u8, &'static str> {
-        if self.length == 0 {
-            return Err("Queue is empty");
-        }
-
-        let value = self.queue[self.index];
-        self.index = (self.index + 1) % self.queue.len();
-        self.length -= 1;
-
-        Ok(value)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.length == 0
-    }
-
-    pub fn is_full(&self) -> bool {
-        self.length == self.queue.len()
-    }
-
-    pub fn len(&self) -> usize {
-        self.length
-    }
-
-    pub fn clear(&mut self) {
-        self.index = 0;
-        self.length = 0;
     }
 }
 
@@ -208,8 +150,7 @@ impl PixelFetcher {
     /// Returns the higher byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_high(&self, bus: &Bus) -> u8 {
-        let addr_high = self.tile_data_address + 1;
-        bus.read_byte_unchecked(addr_high)
+        bus.read_byte_unchecked(self.tile_data_address + 1)
     }
 
     fn push_pixel_data_to_queue(&mut self) {
@@ -226,7 +167,6 @@ impl PixelFetcher {
     fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) {
         if self.discard_counter > 0 && self.background_queue.pop().is_ok() {
             self.discard_counter -= 1;
-            self.render_x += 1;
             return;
         }
 
