@@ -324,7 +324,7 @@ impl Executable for INC {
         match self {
             INC::R8(register) => {
                 let current = cpu.read_r8(register);
-                let (result, _) = current.overflowing_add(1);
+                let result = current.wrapping_add(1);
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
@@ -335,7 +335,7 @@ impl Executable for INC {
             }
             INC::HL => {
                 let current = cpu.read_hl_ptr();
-                let (result, _) = current.overflowing_add(1);
+                let result = current.wrapping_add(1);
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = false;
@@ -345,13 +345,13 @@ impl Executable for INC {
                 12
             }
             INC::R16(register) => {
-                let (result, _) = cpu.read_r16(register).overflowing_add(1);
+                let result = cpu.read_r16(register).wrapping_add(1);
 
                 cpu.write_r16(register, result);
                 8
             }
             INC::SP => {
-                let (result, _) = cpu.registers.sp.overflowing_add(1);
+                let result = cpu.registers.sp.wrapping_add(1);
 
                 cpu.registers.sp = result;
                 8
@@ -372,34 +372,34 @@ impl Executable for DEC {
         match self {
             DEC::R8(register) => {
                 let current = cpu.read_r8(register);
-                let (result, _) = current.overflowing_sub(1);
+                let result = current.wrapping_sub(1);
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = true;
-                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_sub_u8(current, 1);
 
                 cpu.write_r8(register, result);
                 4
             }
             DEC::HL => {
                 let current = cpu.read_hl_ptr();
-                let (result, _) = current.overflowing_sub(1);
+                let result = current.wrapping_sub(1);
 
                 cpu.registers.f.zero = result == 0;
                 cpu.registers.f.negative = true;
-                cpu.registers.f.half_carry = half_carry_set_add_u8(current, 1);
+                cpu.registers.f.half_carry = half_carry_set_sub_u8(current, 1);
 
                 cpu.write_hl_ptr(result);
                 12
             }
             DEC::R16(register) => {
-                let (result, _) = cpu.read_r16(register).overflowing_sub(1);
+                let result = cpu.read_r16(register).wrapping_sub(1);
 
                 cpu.write_r16(register, result);
                 8
             }
             DEC::SP => {
-                let (result, _) = cpu.registers.sp.overflowing_sub(1);
+                let result = cpu.registers.sp.wrapping_sub(1);
 
                 cpu.registers.sp = result;
                 8
