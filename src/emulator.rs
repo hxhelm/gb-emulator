@@ -9,7 +9,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
     sync::{Arc, Mutex, RwLock},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const PATH_DMG_BOOT_ROM: &'static str = "./boot/dmg.bin";
@@ -30,14 +30,16 @@ impl EmulatorState {
         }
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> u8 {
         if self.cpu.is_halted {
-            return;
+            return 0;
         }
 
         let cycles = self.cpu.step();
 
         self.framebuffer = self.ppu.step(cycles, &mut self.cpu.bus);
+
+        cycles
     }
 }
 
@@ -61,9 +63,9 @@ impl Emulator {
 
         let state = Arc::new(RwLock::new(EmulatorState::init(cpu)));
         let terminated = Arc::new(AtomicBool::new(false));
-        let paused = Arc::new(AtomicBool::new(true));
+        let paused = Arc::new(AtomicBool::new(false));
 
-        let (frame_sender, frame_receiver) = bounded(10);
+        let (frame_sender, frame_receiver) = bounded(3);
 
         let emulation_thread = start_emulation(
             state.clone(),
@@ -90,6 +92,10 @@ impl Emulator {
     }
 }
 
+const CLOCK_SPEED: u32 = 4_194_304;
+const FRAME_RATE: u32 = 60;
+const CYCLES_PER_FRAME: u32 = CLOCK_SPEED / FRAME_RATE;
+
 fn start_emulation(
     state: Arc<RwLock<EmulatorState>>,
     terminated: Arc<AtomicBool>,
@@ -99,20 +105,40 @@ fn start_emulation(
     let state = state.clone();
     let paused_clone = Arc::clone(&paused);
     let terminated_clone = Arc::clone(&terminated);
+    let frame_duration = Duration::from_secs_f64(1.0 / FRAME_RATE as f64);
 
     thread::spawn(move || {
         while !terminated_clone.load(Ordering::Relaxed) {
+            let frame_start = Instant::now();
+            let mut cycles_this_frame: u32 = 0;
+            let mut frame_drawn = false;
+
             if !paused_clone.load(Ordering::Relaxed) {
                 let mut emulator = state.write().unwrap();
-                emulator.step();
+                while cycles_this_frame < CYCLES_PER_FRAME {
+                    let cycles = emulator.step();
+                    cycles_this_frame += cycles as u32;
+
+                    if emulator.framebuffer.is_some() {
+                        frame_drawn = true;
+                        break;
+                    }
+                }
             }
 
-            let emulator = state.read().unwrap();
-            if let Some(framebuffer) = emulator.framebuffer {
-                frame_sender.send(framebuffer).unwrap();
+            if frame_drawn {
+                if let Some(framebuffer) = state.read().unwrap().framebuffer {
+                    frame_sender.send(framebuffer).unwrap();
+                }
             }
 
-            thread::sleep(Duration::from_nanos(100));
+            let elapsed = frame_start.elapsed();
+
+            if elapsed < frame_duration {
+                thread::sleep(frame_duration - elapsed);
+            } else {
+                eprintln!("Frame took too long: {:?}ms", elapsed.as_millis());
+            }
         }
     })
 }

@@ -21,6 +21,8 @@ use std::{
 };
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
+const SNAPSHOT_DELAY_MS: u64 = 200;
+const TUI_EVENT_POLL_MS: u64 = 4;
 
 struct TUI {
     memory_vertical_scroll_state: ScrollbarState,
@@ -177,7 +179,7 @@ impl Debugger {
                         *snap = *emulator;
                     }
 
-                    thread::sleep(Duration::from_millis(16));
+                    thread::sleep(Duration::from_millis(SNAPSHOT_DELAY_MS));
                 }
             })
         };
@@ -203,7 +205,9 @@ impl Debugger {
                             .expect("failed to draw frame");
                     }
 
-                    if event::poll(time::Duration::from_millis(5)).expect("Failed to poll events") {
+                    if event::poll(time::Duration::from_millis(TUI_EVENT_POLL_MS))
+                        .expect("Failed to poll events")
+                    {
                         if let Event::Key(key) = event::read().expect("Failed to read event") {
                             match key.code {
                                 KeyCode::Char('x') => {
