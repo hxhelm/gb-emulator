@@ -81,9 +81,6 @@ impl App {
         let new_pixels = new_frame.0;
 
         for (i, pixel) in pixels_frame.chunks_exact_mut(4).enumerate() {
-            let x = i % LCD_WIDTH;
-            let y = i / LCD_WIDTH;
-
             let rgba = match new_pixels[i] {
                 0 => [0x0f, 0x38, 0x0f, 0xff],
                 1 => [0x30, 0x62, 0x30, 0xff],

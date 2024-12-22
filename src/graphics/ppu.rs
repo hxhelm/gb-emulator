@@ -21,18 +21,13 @@ impl Default for PixelData {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub enum PPUMode {
+    #[default]
     OBJSearch,
     SendPixels,
     HorizontalBlank,
     VerticalBlank,
-}
-
-impl Default for PPUMode {
-    fn default() -> Self {
-        Self::OBJSearch
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -59,13 +54,14 @@ impl PPU {
 
     fn check_mode_change(self) -> (bool, u16) {
         let send_pixel_timer: u16 = (172 + self.scanline_x_scroll % 8).into();
+        let hblank_timer: u16 = (204 - self.scanline_x_scroll % 8).into();
         let timer = self.mode_timer;
 
         match self.mode {
             PPUMode::OBJSearch if timer >= 80 => (true, timer - 80),
             // TODO: account for this modes penalties, see: https://gbdev.io/pandocs/Rendering.html#mode-3-length
             PPUMode::SendPixels if timer >= send_pixel_timer => (true, timer - send_pixel_timer),
-            PPUMode::HorizontalBlank if timer >= 204 => (true, timer - 204),
+            PPUMode::HorizontalBlank if timer >= hblank_timer => (true, timer - hblank_timer),
             PPUMode::VerticalBlank if timer >= CYCLES_PER_LINE => (true, timer - CYCLES_PER_LINE),
             _ => (false, 0),
         }
@@ -82,7 +78,7 @@ impl PPU {
             PPUMode::HorizontalBlank => {
                 bus.lcd_update_line();
 
-                if bus.lcd_current_line() == 143 {
+                if bus.lcd_current_line() == 144 {
                     PPUMode::VerticalBlank
                 } else {
                     PPUMode::OBJSearch
@@ -102,6 +98,10 @@ impl PPU {
     }
 
     pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) -> Option<PixelData> {
+        if !bus.get_lcd_enable() {
+            return None;
+        }
+
         self.mode_timer = self.mode_timer.saturating_add(t_cycles.into());
 
         let (should_change_mode, remaining_cycles) = self.check_mode_change();

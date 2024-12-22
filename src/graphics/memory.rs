@@ -121,14 +121,10 @@ pub(crate) enum TileDataArea {
 impl TileDataArea {
     pub(crate) fn get_tile_address(&self, tile_number: u8) -> u16 {
         match self {
-            TileDataArea::Method8000 => {
-                // Tiles 0–255, starting at 0x8000
-                0x8000 + (tile_number as u16) * 16
-            }
+            TileDataArea::Method8000 => 0x8000u16.wrapping_add((tile_number as u16) * 16),
             TileDataArea::Method8800 => {
-                // Tiles -128 to 127 (signed), starting at 0x8800
                 let signed_tile = tile_number as i8; // Interpret as signed
-                0x9000u16.wrapping_add_signed((signed_tile as i16) * 16) as u16
+                0x9000u16.wrapping_add_signed((signed_tile as i16) * 16)
             }
         }
     }

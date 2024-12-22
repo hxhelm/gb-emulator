@@ -174,6 +174,10 @@ impl PixelFetcher {
             return;
         };
 
+        if self.render_x > 159 {
+            return;
+        }
+
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = bg_pixel;
 
