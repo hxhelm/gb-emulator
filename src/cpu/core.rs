@@ -34,6 +34,20 @@ pub struct CPU {
 }
 
 impl CPU {
+    // TODO: make boot rom optional? look into expected state after boot rom
+    pub fn init(boot_rom: &[u8], cartridge_contents: Option<&[u8]>) -> Self {
+        let mut cpu = Self::default();
+
+        // TODO: support bigger cartridges with memory bank https://gbdev.io/pandocs/MBCs.html#mbcs
+        if let Some(rom) = cartridge_contents {
+            cpu.load_cartridge(rom);
+        }
+
+        cpu.load_boot_rom(boot_rom);
+
+        cpu
+    }
+
     pub(crate) fn push_to_stack(&mut self, value: u16) {
         self.registers.sp = self.registers.sp.wrapping_sub(2);
         self.bus.write_word(self.registers.sp, value);
@@ -114,6 +128,10 @@ impl CPU {
         let instruction_data = self.fetch();
         self.current_opcode = instruction_data.opcode;
 
+        // if self.registers.pc >= 0x100 {
+        //     self.log_state();
+        // }
+
         let (instruction, bytes) = get_instruction(&instruction_data);
         self.registers.pc += bytes;
 
@@ -122,13 +140,13 @@ impl CPU {
         self.update_timers();
 
         // test rom serial output
-        if self.bus.read_byte(0xFF02) == 0x81 {
-            let character = self.bus.read_byte(0xFF01);
-            if character != 0x00 {
-                eprint!("{}", character as char);
-                self.bus.write_byte(0xFF01, 0x00);
-            }
-        }
+        // if self.bus.read_byte(0xFF02) == 0x81 {
+        //     let character = self.bus.read_byte(0xFF01);
+        //     if character != 0x00 {
+        //         eprint!("{}", character as char);
+        //         self.bus.write_byte(0xFF01, 0x00);
+        //     }
+        // }
 
         // TODO: handle interrupts
 

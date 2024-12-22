@@ -54,16 +54,10 @@ pub struct Emulator {
 
 impl Emulator {
     pub fn init(cartridge_contents: Option<&[u8]>) -> Result<Self> {
-        let mut cpu = CPU::default();
-
-        if let Some(rom) = cartridge_contents {
-            cpu.load_cartridge(rom);
-        }
-
         let boot_rom_path = PATH_DMG_BOOT_ROM;
         let boot_rom = fs::read(boot_rom_path)?;
 
-        cpu.load_boot_rom(boot_rom.as_slice());
+        let cpu = CPU::init(boot_rom.as_slice(), cartridge_contents);
 
         let state = Arc::new(RwLock::new(EmulatorState::init(cpu)));
         let terminated = Arc::new(AtomicBool::new(false));
