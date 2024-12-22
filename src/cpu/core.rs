@@ -1,20 +1,8 @@
 use super::instructions::Executable;
 use super::opcodes::get_instruction;
 use super::registers::*;
+use super::timers::Clock;
 use crate::memory::bus::Bus;
-
-#[derive(Default, Clone, Copy)]
-pub struct Clock {
-    pub(crate) t: u64,
-    pub(crate) m: u64,
-}
-
-impl Clock {
-    fn increment(&mut self, t_cycles: u8) {
-        self.t = self.m.wrapping_add(t_cycles.into());
-        self.m = self.t / 4;
-    }
-}
 
 pub(crate) struct InstructionData {
     pub(super) opcode: u8,
@@ -27,7 +15,7 @@ pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
     pub(crate) clock: Clock,
-    last_timer_update: u64,
+    pub(crate) last_timer_update: u64,
     pub(crate) ime: bool,
     pub(crate) is_halted: bool,
     pub(crate) current_opcode: u8,
@@ -57,54 +45,6 @@ impl CPU {
         let result = self.bus.read_word(self.registers.sp);
         self.registers.sp = self.registers.sp.wrapping_add(2);
         result
-    }
-
-    fn read_tac(&self) -> u8 {
-        self.bus.read_byte(0xFF07)
-    }
-
-    fn is_timer_enabled(&self) -> bool {
-        (self.read_tac() & 0x04) != 0
-    }
-
-    fn get_timer_t_frequency(&self) -> u64 {
-        const TIMER_FREQUENCIES: [u64; 4] = [256, 4, 16, 64];
-        TIMER_FREQUENCIES[(self.read_tac() & 0x03) as usize]
-    }
-
-    fn read_tma(&self) -> u8 {
-        self.bus.read_byte(0xFF06)
-    }
-
-    fn read_tima(&self) -> u8 {
-        self.bus.read_byte(0xFF05)
-    }
-
-    fn write_tima(&mut self, value: u8) {
-        self.bus.write_byte(0xFF05, value);
-    }
-
-    fn update_timers(&mut self) {
-        if !self.is_timer_enabled() {
-            return;
-        }
-
-        let timer_frequency = self.get_timer_t_frequency();
-
-        let timer_diff = self.clock.t.saturating_sub(self.last_timer_update);
-        if timer_diff >= timer_frequency {
-            let increments = timer_diff / timer_frequency;
-            let (tima, did_overflow) = self.read_tima().overflowing_add(increments as u8);
-
-            if did_overflow {
-                self.write_tima(self.read_tma());
-                // TODO: trigger interrupt
-            } else {
-                self.write_tima(tima);
-            }
-
-            self.last_timer_update += increments * timer_frequency;
-        }
     }
 
     pub fn load_cartridge(&mut self, rom: &[u8]) {
@@ -139,18 +79,22 @@ impl CPU {
         self.clock.increment(t_cycles);
         self.update_timers();
 
-        // test rom serial output
-        // if self.bus.read_byte(0xFF02) == 0x81 {
-        //     let character = self.bus.read_byte(0xFF01);
-        //     if character != 0x00 {
-        //         eprint!("{}", character as char);
-        //         self.bus.write_byte(0xFF01, 0x00);
-        //     }
-        // }
+        self.print_serial_output();
 
         // TODO: handle interrupts
 
         t_cycles
+    }
+
+    fn print_serial_output(&mut self) {
+        // test rom serial output
+        if self.bus.read_byte(0xFF02) == 0x81 {
+            let character = self.bus.read_byte(0xFF01);
+            if character != 0x00 {
+                eprint!("{}", character as char);
+                self.bus.write_byte(0xFF01, 0x00);
+            }
+        }
     }
 
     #[allow(unused)]
