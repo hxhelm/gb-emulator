@@ -229,14 +229,14 @@ impl Executable for SWAP {
             SWAP::Register8(register) => {
                 let value = cpu.read_r8(register);
                 let swapped = value.rotate_right(4);
-                cpu.registers.f.negative = swapped == 0;
+                cpu.registers.f.zero = swapped == 0;
                 cpu.write_r8(register, swapped);
                 8
             }
             SWAP::HLAddress => {
                 let value = cpu.read_hl_ptr();
                 let swapped = value.rotate_right(4);
-                cpu.registers.f.negative = swapped == 0;
+                cpu.registers.f.zero = swapped == 0;
                 cpu.write_hl_ptr(swapped);
                 16
             }

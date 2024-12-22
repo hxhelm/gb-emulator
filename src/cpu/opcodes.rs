@@ -272,7 +272,7 @@ fn match_prefix(opcode: u8) -> (Instruction, u16) {
         0x04 => Instruction::Rlc(RLC::Register8(R8::H)),
         0x05 => Instruction::Rlc(RLC::Register8(R8::L)),
         0x06 => Instruction::Rlc(RLC::HLAddress),
-        0x07 => Instruction::Rrc(RRC::Register8(R8::A)),
+        0x07 => Instruction::Rlc(RLC::Register8(R8::A)),
         0x08 => Instruction::Rrc(RRC::Register8(R8::B)),
         0x09 => Instruction::Rrc(RRC::Register8(R8::C)),
         0x0A => Instruction::Rrc(RRC::Register8(R8::D)),
