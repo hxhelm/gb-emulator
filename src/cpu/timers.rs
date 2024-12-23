@@ -40,7 +40,9 @@ impl CPU {
         self.bus.write_byte(0xFF05, value);
     }
 
-    pub(crate) fn update_timers(&mut self) {
+    pub(crate) fn update_timers(&mut self, t_cycles: u8) {
+        self.clock.increment(t_cycles);
+
         if !self.is_timer_enabled() {
             return;
         }

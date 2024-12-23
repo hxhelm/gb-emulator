@@ -664,7 +664,15 @@ pub(crate) enum RST {
 
 impl Executable for RST {
     fn execute(&self, cpu: &mut CPU) -> u8 {
-        cpu.call_address(*self as u16);
+        let address = match cpu.custom_rst {
+            Some(address) => {
+                cpu.custom_rst = None;
+                address
+            }
+            None => *self as u16,
+        };
+
+        cpu.call_address(address);
         16
     }
 }
@@ -867,8 +875,21 @@ impl Executable for STOP {
 pub(crate) struct HALT;
 
 impl Executable for HALT {
-    fn execute(&self, _cpu: &mut CPU) -> u8 {
-        // TODO: implement
+    fn execute(&self, cpu: &mut CPU) -> u8 {
+        eprintln!("HALT instr called");
+        cpu.is_halted = true;
+
+        if !cpu.halt_bug_triggered
+            && matches!(
+                cpu.interrupt_state,
+                InterruptState::Disabled | InterruptState::EnableRequested
+            )
+            && cpu.bus.is_interrupt_pending()
+        {
+            eprintln!("HALT bug triggered!");
+            cpu.halt_bug_triggered = true;
+        }
+
         4
     }
 }

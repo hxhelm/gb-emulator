@@ -24,8 +24,11 @@ pub struct CPU {
     pub(crate) bus: Bus,
     pub(crate) clock: Clock,
     pub(crate) last_timer_update: u64,
-    pub(crate) is_halted: bool,
     pub(crate) current_opcode: u8,
+    /// halt state and halt bug flag
+    pub(crate) is_halted: bool,
+    pub(super) halt_bug_triggered: bool,
+    pub(super) custom_rst: Option<u16>,
     /// Interrupt handling
     pub(crate) interrupt_state: InterruptState,
 }
@@ -77,25 +80,31 @@ impl CPU {
         let instruction_data = self.fetch();
         self.current_opcode = instruction_data.opcode;
 
+        if self.is_halted {
+            // keep incrementing timers during halted state by base cycles of 4
+            let cycles = self.handle_halted_interrupts() + 4;
+            self.update_timers(cycles);
+            return cycles;
+        }
+
+        let skip_increment = self.halt_bug_triggered;
+
         // Handle Interrupt Enable requested by EI instruction, which is delayed by one instruction
         if matches!(self.interrupt_state, InterruptState::EnableRequested) {
             self.interrupt_state = InterruptState::Enabled;
         }
 
-        // if self.registers.pc >= 0x100 {
-        //     self.log_state();
-        // }
-
         let (instruction, bytes) = get_instruction(&instruction_data);
-        self.registers.pc += bytes;
+
+        if !skip_increment {
+            self.registers.pc += bytes;
+        }
 
         let instruction_cycles = instruction.execute(self);
-        self.clock.increment(instruction_cycles);
-
-        self.update_timers();
+        self.update_timers(instruction_cycles);
 
         let interrupt_cycles = self.handle_interrupts();
-        self.clock.increment(interrupt_cycles);
+        self.update_timers(interrupt_cycles);
 
         self.print_serial_output();
 
