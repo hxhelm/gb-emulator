@@ -52,10 +52,12 @@ impl TUI {
             ])
             .split(frame.area());
 
-        let instruction_widget =
-            Paragraph::new(format!("Current Instruction: {:02X}", cpu.current_opcode))
-                .block(Block::default().borders(Borders::ALL).title("Instruction"))
-                .style(Style::default().fg(Color::Yellow));
+        let instruction_widget = Paragraph::new(format!(
+            "Current Instruction: {:02X}",
+            cpu.current_instruction.opcode
+        ))
+        .block(Block::default().borders(Borders::ALL).title("Instruction"))
+        .style(Style::default().fg(Color::Yellow));
         frame.render_widget(instruction_widget, chunks[0]);
 
         let register_items: Vec<ListItem> = self

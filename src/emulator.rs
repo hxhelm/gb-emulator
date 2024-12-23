@@ -31,10 +31,6 @@ impl EmulatorState {
     }
 
     pub fn step(&mut self) -> u8 {
-        if self.cpu.is_halted {
-            return 0;
-        }
-
         let cycles = self.cpu.step();
 
         self.framebuffer = self.ppu.step(cycles, &mut self.cpu.bus);

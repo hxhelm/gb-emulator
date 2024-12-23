@@ -4,8 +4,9 @@ use super::registers::*;
 use super::timers::Clock;
 use crate::memory::bus::Bus;
 
+#[derive(Default, Clone, Copy)]
 pub(crate) struct InstructionData {
-    pub(super) opcode: u8,
+    pub(crate) opcode: u8,
     pub(super) param1: u8,
     pub(super) param2: u8,
 }
@@ -19,16 +20,21 @@ pub(crate) enum InterruptState {
 }
 
 #[derive(Default, Clone, Copy)]
+pub(crate) enum HaltState {
+    #[default]
+    NotHalted,
+    Halted,
+    HaltBug,
+}
+
+#[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
     pub(crate) clock: Clock,
     pub(crate) last_timer_update: u64,
-    pub(crate) current_opcode: u8,
-    /// halt state and halt bug flag
-    pub(crate) is_halted: bool,
-    pub(super) halt_bug_triggered: bool,
-    pub(super) custom_rst: Option<u16>,
+    pub(crate) current_instruction: InstructionData,
+    pub(crate) halt_state: HaltState,
     /// Interrupt handling
     pub(crate) interrupt_state: InterruptState,
 }
@@ -68,40 +74,50 @@ impl CPU {
     }
 
     // TODO: handle out of bound fetch
-    pub(crate) fn fetch(&self) -> InstructionData {
-        InstructionData {
-            opcode: self.bus.read_byte(self.registers.pc),
-            param1: self.bus.read_byte(self.registers.pc + 1),
-            param2: self.bus.read_byte(self.registers.pc + 2),
+    fn fetch(&mut self) -> InstructionData {
+        match self.halt_state {
+            HaltState::HaltBug => {
+                self.halt_state = HaltState::NotHalted;
+
+                InstructionData {
+                    opcode: self.bus.read_byte(self.registers.pc),
+                    param1: self.bus.read_byte(self.registers.pc),
+                    param2: self.bus.read_byte(self.registers.pc + 1),
+                }
+            }
+            _ => InstructionData {
+                opcode: self.bus.read_byte(self.registers.pc),
+                param1: self.bus.read_byte(self.registers.pc + 1),
+                param2: self.bus.read_byte(self.registers.pc + 2),
+            },
         }
     }
 
     pub fn step(&mut self) -> u8 {
-        let instruction_data = self.fetch();
-        self.current_opcode = instruction_data.opcode;
+        self.current_instruction = self.fetch();
 
-        if self.is_halted {
+        if matches!(self.halt_state, HaltState::Halted) {
             // keep incrementing timers during halted state by base cycles of 4
             let cycles = self.handle_halted_interrupts() + 4;
             self.update_timers(cycles);
             return cycles;
         }
 
-        let skip_increment = self.halt_bug_triggered;
+        let (instruction, bytes) = get_instruction(&self.current_instruction);
 
-        // Handle Interrupt Enable requested by EI instruction, which is delayed by one instruction
-        if matches!(self.interrupt_state, InterruptState::EnableRequested) {
-            self.interrupt_state = InterruptState::Enabled;
-        }
-
-        let (instruction, bytes) = get_instruction(&instruction_data);
-
-        if !skip_increment {
+        if !matches!(self.halt_state, HaltState::HaltBug) {
             self.registers.pc += bytes;
         }
 
         let instruction_cycles = instruction.execute(self);
         self.update_timers(instruction_cycles);
+
+        // Handle Interrupt Enable requested by EI instruction, which is delayed by one instruction
+        if matches!(self.interrupt_state, InterruptState::EnableRequested)
+            && self.current_instruction.opcode != 0xD9
+        {
+            self.interrupt_state = InterruptState::Enabled;
+        }
 
         let interrupt_cycles = self.handle_interrupts();
         self.update_timers(interrupt_cycles);
