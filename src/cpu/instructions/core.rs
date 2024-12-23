@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::cpu::registers::*;
+use crate::cpu::InterruptState;
 use crate::cpu::CPU;
 
 use super::prefixed::*;
@@ -641,7 +642,7 @@ impl Executable for CALL {
 }
 
 impl CPU {
-    fn call_address(&mut self, address: u16) {
+    pub(crate) fn call_address(&mut self, address: u16) {
         // we simply push the current PC because the PC is incremented in `CPU::step` before
         // instruction execution
         self.push_to_stack(self.registers.pc);
@@ -691,7 +692,7 @@ impl Executable for RET {
             }
             RET::EI => {
                 cpu.registers.pc = cpu.pop_from_stack();
-                cpu.ime = true;
+                cpu.interrupt_state = InterruptState::Enabled;
                 16
             }
         }
@@ -876,7 +877,7 @@ pub(crate) struct DI;
 
 impl Executable for DI {
     fn execute(&self, cpu: &mut CPU) -> u8 {
-        cpu.ime = false;
+        cpu.interrupt_state = InterruptState::Disabled;
         4
     }
 }
@@ -887,7 +888,7 @@ impl Executable for EI {
     fn execute(&self, cpu: &mut CPU) -> u8 {
         // normally executed after the instruction following EI, have to see whether this will be an
         // issue later
-        cpu.ime = true;
+        cpu.interrupt_state = InterruptState::EnableRequested;
         4
     }
 }

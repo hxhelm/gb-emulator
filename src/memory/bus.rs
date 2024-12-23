@@ -128,3 +128,15 @@ impl Bus {
         self.boot_rom.copy_from_slice(&rom[..boot_rom_length]);
     }
 }
+
+pub fn get_bit_status(byte: u8, position: u8) -> bool {
+    byte & (1 << position) != 0
+}
+
+pub fn set_bit_status(byte: u8, position: u8, status: bool) -> u8 {
+    if status {
+        byte | 1 << position
+    } else {
+        byte & !(1 << position)
+    }
+}

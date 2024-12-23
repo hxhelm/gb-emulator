@@ -11,14 +11,23 @@ pub(crate) struct InstructionData {
 }
 
 #[derive(Default, Clone, Copy)]
+pub(crate) enum InterruptState {
+    Enabled,
+    #[default]
+    Disabled,
+    EnableRequested,
+}
+
+#[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
     pub(crate) clock: Clock,
     pub(crate) last_timer_update: u64,
-    pub(crate) ime: bool,
     pub(crate) is_halted: bool,
     pub(crate) current_opcode: u8,
+    /// Interrupt handling
+    pub(crate) interrupt_state: InterruptState,
 }
 
 impl CPU {
@@ -68,6 +77,11 @@ impl CPU {
         let instruction_data = self.fetch();
         self.current_opcode = instruction_data.opcode;
 
+        // Handle Interrupt Enable requested by EI instruction, which is delayed by one instruction
+        if matches!(self.interrupt_state, InterruptState::EnableRequested) {
+            self.interrupt_state = InterruptState::Enabled;
+        }
+
         // if self.registers.pc >= 0x100 {
         //     self.log_state();
         // }
@@ -75,15 +89,17 @@ impl CPU {
         let (instruction, bytes) = get_instruction(&instruction_data);
         self.registers.pc += bytes;
 
-        let t_cycles = instruction.execute(self);
-        self.clock.increment(t_cycles);
+        let instruction_cycles = instruction.execute(self);
+        self.clock.increment(instruction_cycles);
+
         self.update_timers();
+
+        let interrupt_cycles = self.handle_interrupts();
+        self.clock.increment(interrupt_cycles);
 
         self.print_serial_output();
 
-        // TODO: handle interrupts
-
-        t_cycles
+        instruction_cycles + interrupt_cycles
     }
 
     fn print_serial_output(&mut self) {

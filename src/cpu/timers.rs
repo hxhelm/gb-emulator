@@ -8,6 +8,7 @@ pub struct Clock {
 
 impl Clock {
     pub(crate) fn increment(&mut self, t_cycles: u8) {
+        assert_eq!(t_cycles % 4, 0, "t_cycles need to be a multiple of 4");
         self.t = self.m.wrapping_add(t_cycles.into());
         self.m = self.t / 4;
     }
@@ -53,7 +54,7 @@ impl CPU {
 
             if did_overflow {
                 self.write_tima(self.read_tma());
-                // TODO: trigger interrupt
+                // self.bus.request_timer_interrupt();
             } else {
                 self.write_tima(tima);
             }

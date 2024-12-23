@@ -79,6 +79,7 @@ impl PPU {
                 bus.lcd_update_line();
 
                 if bus.lcd_current_line() == 144 {
+                    bus.request_vblank_interrupt();
                     PPUMode::VerticalBlank
                 } else {
                     PPUMode::OBJSearch

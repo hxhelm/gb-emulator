@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::memory::bus::Bus;
+use crate::memory::bus::{get_bit_status, set_bit_status, Bus};
 
 const LCD_CONTROL: u16 = 0xFF40;
 const LCDC_BIT_LCD_ENABLE: u8 = 7;
@@ -10,18 +10,6 @@ const LCDC_BIT_BG_TILE_MAP: u8 = 3;
 const LCDC_BIT_OBJ_SIZE: u8 = 2;
 const LCDC_BIT_OBJ_ENABLE: u8 = 1;
 const LCDC_BIT_BG_WINDOW_ENABLE: u8 = 0;
-
-fn get_bit_status(byte: u8, position: u8) -> bool {
-    byte & (1 << position) != 0
-}
-
-fn set_bit_status(byte: u8, position: u8, status: bool) -> u8 {
-    if status {
-        byte | 1 << position
-    } else {
-        byte & !(1 << position)
-    }
-}
 
 impl Bus {
     fn get_lcdc_bit(&self, position: u8) -> bool {
