@@ -91,7 +91,7 @@ impl CPU {
         }
 
         let i_enabled = self.bus.get_interrupt_enabled();
-        let i_flags = self.bus.get_interrupt_enabled();
+        let i_flags = self.bus.get_interrupt_flags();
         let bits = i_enabled & i_flags;
 
         let Some(interrupt_source) = get_source_from_bits(bits) else {
@@ -106,11 +106,6 @@ impl CPU {
     fn execute_handler(&mut self, interrupt_source: InterruptSource) {
         self.interrupt_state = InterruptState::Disabled;
         self.bus.clear_interrupt_source(&interrupt_source);
-
-        eprintln!(
-            "Handling interrupt. Leaving {:04X} and jumping to {:04X}",
-            self.registers.pc, interrupt_source as u16
-        );
 
         self.call_address(interrupt_source as u16)
     }
