@@ -1,5 +1,12 @@
 use crate::cpu::CPU;
 
+/// TIMA register address
+pub(super) const TIMER_COUNTER: u16 = 0xFF05;
+/// TMA register address
+pub(super) const TIMER_MODULO: u16 = 0xFF06;
+/// TAC register address
+pub(super) const TIMER_CONTROL: u16 = 0xFF07;
+
 #[derive(Default, Clone, Copy)]
 pub struct Clock {
     pub(crate) t: u64,
@@ -16,7 +23,7 @@ impl Clock {
 
 impl CPU {
     fn read_tac(&self) -> u8 {
-        self.bus.read_byte(0xFF07)
+        self.bus.read_byte(TIMER_CONTROL)
     }
 
     fn is_timer_enabled(&self) -> bool {
@@ -29,15 +36,15 @@ impl CPU {
     }
 
     fn read_tma(&self) -> u8 {
-        self.bus.read_byte(0xFF06)
+        self.bus.read_byte(TIMER_MODULO)
     }
 
     fn read_tima(&self) -> u8 {
-        self.bus.read_byte(0xFF05)
+        self.bus.read_byte(TIMER_COUNTER)
     }
 
     fn write_tima(&mut self, value: u8) {
-        self.bus.write_byte(0xFF05, value);
+        self.bus.write_byte(TIMER_COUNTER, value);
     }
 
     pub(crate) fn update_timers(&mut self, t_cycles: u8) {

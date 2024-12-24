@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
+use crate::cpu::interrupts::InterruptState;
 use crate::cpu::registers::*;
-use crate::cpu::InterruptState;
 use crate::cpu::CPU;
 
 use super::prefixed::*;
@@ -126,16 +126,6 @@ impl ByteTarget {
 pub(crate) enum WordTarget {
     Register16(R16),
     SP,
-}
-
-impl CPU {
-    fn read_bytetarget(&self, target: &ByteTarget) -> u8 {
-        match target {
-            ByteTarget::Constant(value) => *value,
-            ByteTarget::Register8(register) => self.read_r8(register),
-            ByteTarget::HLAddress => self.read_hl_ptr(),
-        }
-    }
 }
 
 pub(crate) enum ADD {
@@ -641,15 +631,6 @@ impl Executable for CALL {
     }
 }
 
-impl CPU {
-    pub(crate) fn call_address(&mut self, address: u16) {
-        // we simply push the current PC because the PC is incremented in `CPU::step` before
-        // instruction execution
-        self.push_to_stack(self.registers.pc);
-        self.registers.pc = address;
-    }
-}
-
 #[derive(Copy, Clone)]
 pub(crate) enum RST {
     V0 = 0x00,
@@ -888,8 +869,6 @@ pub(crate) struct EI;
 
 impl Executable for EI {
     fn execute(&self, cpu: &mut CPU) -> u8 {
-        // normally executed after the instruction following EI, have to see whether this will be an
-        // issue later
         cpu.interrupt_state = InterruptState::EnableRequested;
         4
     }
@@ -913,6 +892,34 @@ fn half_carry_set_sbc_u8(a: u8, b: u8, carry: u8) -> bool {
 
 fn half_carry_set_add_u16(a: u16, b: u16) -> bool {
     ((a & 0xFFF) + (b & 0xFFF)) & 0x1000 == 0x1000
+}
+
+impl CPU {
+    fn push_to_stack(&mut self, value: u16) {
+        self.registers.sp = self.registers.sp.wrapping_sub(2);
+        self.bus.write_word(self.registers.sp, value);
+    }
+
+    fn pop_from_stack(&mut self) -> u16 {
+        let result = self.bus.read_word(self.registers.sp);
+        self.registers.sp = self.registers.sp.wrapping_add(2);
+        result
+    }
+
+    fn read_bytetarget(&self, target: &ByteTarget) -> u8 {
+        match target {
+            ByteTarget::Constant(value) => *value,
+            ByteTarget::Register8(register) => self.read_r8(register),
+            ByteTarget::HLAddress => self.read_hl_ptr(),
+        }
+    }
+
+    pub(crate) fn call_address(&mut self, address: u16) {
+        // we simply push the current PC because the PC is incremented in `CPU::step` before
+        // instruction execution
+        self.push_to_stack(self.registers.pc);
+        self.registers.pc = address;
+    }
 }
 
 #[cfg(test)]

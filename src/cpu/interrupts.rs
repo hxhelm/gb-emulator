@@ -1,11 +1,10 @@
-#![allow(unused)]
-use crate::cpu::{InterruptState, CPU};
-use crate::memory::bus::{get_bit_status, set_bit_status, Bus};
+use crate::cpu::CPU;
+use crate::memory::bus::Bus;
 
-use super::HaltState;
-
-const INTERRUPT_ENABLE: u16 = 0xFFFF;
-const INTERRUPT_FLAG: u16 = 0xFF0F;
+/// IE register address
+pub(super) const INTERRUPT_ENABLE: u16 = 0xFFFF;
+/// IF register address
+pub(super) const INTERRUPT_FLAG: u16 = 0xFF0F;
 const INTERRUPT_VBLANK_BIT: u8 = 0b1;
 const INTERRUPT_STAT_BIT: u8 = 0b10;
 const INTERRUPT_TIMER_BIT: u8 = 0b100;
@@ -14,6 +13,22 @@ const INTERRUPT_JOYPAD_BIT: u8 = 0b10000;
 
 const INTERRUPT_HANDLER_CYCLES: u8 = 20;
 const INTERRUPT_IGNORE_CYCLES: u8 = 0;
+
+#[derive(Default, Clone, Copy)]
+pub(crate) enum InterruptState {
+    Enabled,
+    #[default]
+    Disabled,
+    EnableRequested,
+}
+
+#[derive(Default, Clone, Copy)]
+pub(crate) enum HaltState {
+    #[default]
+    NotHalted,
+    Halted,
+    HaltBug,
+}
 
 #[derive(Clone, Copy)]
 enum InterruptSource {
@@ -29,6 +44,7 @@ impl Bus {
         self.enable_interrupt_request(INTERRUPT_VBLANK_BIT)
     }
 
+    #[allow(unused)]
     pub fn request_stat_interrupt(&mut self) {
         self.enable_interrupt_request(INTERRUPT_STAT_BIT)
     }
@@ -37,10 +53,12 @@ impl Bus {
         self.enable_interrupt_request(INTERRUPT_TIMER_BIT)
     }
 
+    #[allow(unused)]
     pub fn request_serial_interrupt(&mut self) {
         self.enable_interrupt_request(INTERRUPT_SERIAL_BIT)
     }
 
+    #[allow(unused)]
     pub fn request_joypad_interrupt(&mut self) {
         self.enable_interrupt_request(INTERRUPT_JOYPAD_BIT)
     }
@@ -104,7 +122,7 @@ impl CPU {
         };
     }
 
-    pub fn handle_interrupts(&mut self) -> u8 {
+    pub(super) fn handle_interrupts(&mut self) -> u8 {
         if !matches!(self.interrupt_state, InterruptState::Enabled) {
             return INTERRUPT_IGNORE_CYCLES;
         }
@@ -119,7 +137,7 @@ impl CPU {
         self.execute_handler(interrupt_source)
     }
 
-    pub fn handle_halted_interrupts(&mut self) -> u8 {
+    pub(super) fn handle_halted_interrupts(&mut self) -> u8 {
         let i_enabled = self.bus.get_interrupt_enabled();
         let i_flags = self.bus.get_interrupt_flags();
 
@@ -153,12 +171,5 @@ fn get_source_from_bits(bits: u8) -> Option<InterruptSource> {
         b if b & INTERRUPT_SERIAL_BIT != 0 => Some(InterruptSource::SERIAL),
         b if b & INTERRUPT_JOYPAD_BIT != 0 => Some(InterruptSource::JOYPAD),
         _ => None,
-    }
-}
-
-fn instruction_is_rst(opcode: u8) -> bool {
-    match opcode {
-        0xC7 | 0xCF | 0xD7 | 0xDF | 0xE7 | 0xEF | 0xF7 | 0xFF => true,
-        _ => false,
     }
 }

@@ -8,7 +8,7 @@ const BOOT_ROM_LENGTH: u16 = 0x0100;
 pub struct Bus {
     memory: Memory,
     boot_rom: [u8; BOOT_ROM_LENGTH as usize],
-    boot_rom_disabled: bool,
+    pub(crate) boot_rom_disabled: bool,
 }
 
 impl Default for Bus {

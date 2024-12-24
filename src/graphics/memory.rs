@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use crate::memory::bus::{get_bit_status, set_bit_status, Bus};
 
-const LCD_CONTROL: u16 = 0xFF40;
+/// LCDC register address
+pub const LCD_CONTROL: u16 = 0xFF40;
 const LCDC_BIT_LCD_ENABLE: u8 = 7;
 const LCDC_BIT_WINDOW_TILE_MAP: u8 = 6;
 const LCDC_BIT_WINDOW_ENABLE: u8 = 5;
@@ -164,13 +165,20 @@ impl Bus {
     }
 }
 
-const LCD_Y: u16 = 0xFF44;
-const _LCD_Y_COMPARE: u16 = 0xFF45;
-const _LCD_STAT: u16 = 0xFF41;
-const WINDOW_Y: u16 = 0xFF4A;
-const WINDOW_X: u16 = 0xFF4A;
-const SCROLL_X: u16 = 0xFF43;
-const SCROLL_Y: u16 = 0xFF42;
+/// STAT register address
+pub const LCD_STAT: u16 = 0xFF41;
+/// LY register address
+pub const LCD_Y: u16 = 0xFF44;
+/// LYC register address
+pub const LCD_Y_COMPARE: u16 = 0xFF45;
+/// SCY register address
+pub const WINDOW_Y: u16 = 0xFF4A;
+/// SCX register address
+pub const WINDOW_X: u16 = 0xFF4B;
+/// SCY register address
+pub const SCROLL_Y: u16 = 0xFF42;
+/// SCX register address
+pub const SCROLL_X: u16 = 0xFF43;
 
 impl Bus {
     pub(crate) fn lcd_update_line(&mut self) {

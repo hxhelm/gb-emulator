@@ -12,8 +12,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-const PATH_DMG_BOOT_ROM: &'static str = "./boot/dmg.bin";
-
 #[derive(Clone, Copy)]
 pub struct EmulatorState {
     pub cpu: CPU,
@@ -51,15 +49,16 @@ pub struct Emulator {
 }
 
 impl Emulator {
-    pub fn init(cartridge_contents: Option<&[u8]>) -> Result<Self> {
-        let boot_rom_path = PATH_DMG_BOOT_ROM;
-        let boot_rom = fs::read(boot_rom_path)?;
-
-        let cpu = CPU::init(boot_rom.as_slice(), cartridge_contents);
+    pub fn init(
+        boot_contents: Option<&[u8]>,
+        cartridge_contents: &[u8],
+        paused: bool,
+    ) -> Result<Self> {
+        let cpu = CPU::init(boot_contents, cartridge_contents);
 
         let state = Arc::new(RwLock::new(EmulatorState::init(cpu)));
         let terminated = Arc::new(AtomicBool::new(false));
-        let paused = Arc::new(AtomicBool::new(false));
+        let paused = Arc::new(AtomicBool::new(paused));
 
         let (frame_sender, frame_receiver) = bounded(3);
 

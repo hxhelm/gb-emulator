@@ -1,6 +1,8 @@
 use super::instructions::Executable;
+use super::interrupts::{HaltState, InterruptState};
 use super::opcodes::get_instruction;
 use super::registers::*;
+use super::serial::{SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA};
 use super::timers::Clock;
 use crate::memory::bus::Bus;
 
@@ -12,65 +14,33 @@ pub(crate) struct InstructionData {
 }
 
 #[derive(Default, Clone, Copy)]
-pub(crate) enum InterruptState {
-    Enabled,
-    #[default]
-    Disabled,
-    EnableRequested,
-}
-
-#[derive(Default, Clone, Copy)]
-pub(crate) enum HaltState {
-    #[default]
-    NotHalted,
-    Halted,
-    HaltBug,
-}
-
-#[derive(Default, Clone, Copy)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
+    pub(crate) current_instruction: InstructionData,
+    /// Halt state and halt bug check
+    pub(crate) halt_state: HaltState,
+    /// Timers
     pub(crate) clock: Clock,
     pub(crate) last_timer_update: u64,
-    pub(crate) current_instruction: InstructionData,
-    pub(crate) halt_state: HaltState,
     /// Interrupt handling
     pub(crate) interrupt_state: InterruptState,
 }
 
 impl CPU {
     // TODO: make boot rom optional? look into expected state after boot rom
-    pub fn init(boot_rom: &[u8], cartridge_contents: Option<&[u8]>) -> Self {
+    pub fn init(boot_rom: Option<&[u8]>, cartridge_contents: &[u8]) -> Self {
         let mut cpu = Self::default();
 
         // TODO: support bigger cartridges with memory bank https://gbdev.io/pandocs/MBCs.html#mbcs
-        if let Some(rom) = cartridge_contents {
-            cpu.load_cartridge(rom);
+        cpu.load_cartridge(cartridge_contents);
+
+        match boot_rom {
+            Some(rom) => cpu.load_boot_rom(rom),
+            None => cpu.init_boot_handoff(),
         }
 
-        cpu.load_boot_rom(boot_rom);
-
         cpu
-    }
-
-    pub(crate) fn push_to_stack(&mut self, value: u16) {
-        self.registers.sp = self.registers.sp.wrapping_sub(2);
-        self.bus.write_word(self.registers.sp, value);
-    }
-
-    pub(crate) fn pop_from_stack(&mut self) -> u16 {
-        let result = self.bus.read_word(self.registers.sp);
-        self.registers.sp = self.registers.sp.wrapping_add(2);
-        result
-    }
-
-    pub fn load_cartridge(&mut self, rom: &[u8]) {
-        self.bus.write_cartridge(rom);
-    }
-
-    pub fn load_boot_rom(&mut self, boot_rom: &[u8]) {
-        self.bus.write_boot_rom(boot_rom);
     }
 
     // TODO: handle out of bound fetch
@@ -129,11 +99,11 @@ impl CPU {
 
     fn print_serial_output(&mut self) {
         // test rom serial output
-        if self.bus.read_byte(0xFF02) == 0x81 {
-            let character = self.bus.read_byte(0xFF01);
+        if self.bus.read_byte(SERIAL_TRANSFER_CONTROL) == 0x81 {
+            let character = self.bus.read_byte(SERIAL_TRANSFER_DATA);
             if character != 0x00 {
                 eprint!("{}", character as char);
-                self.bus.write_byte(0xFF01, 0x00);
+                self.bus.write_byte(SERIAL_TRANSFER_DATA, 0x00);
             }
         }
     }
