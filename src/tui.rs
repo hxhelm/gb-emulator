@@ -60,8 +60,7 @@ impl TUI {
         .style(Style::default().fg(Color::Yellow));
         frame.render_widget(instruction_widget, chunks[0]);
 
-        let register_items: Vec<ListItem> = self
-            .register_view(cpu)
+        let register_items: Vec<ListItem> = register_view(cpu)
             .iter()
             .map(|reg| ListItem::new(reg.clone()))
             .collect();
@@ -124,28 +123,28 @@ impl TUI {
             &mut self.memory_vertical_scroll_state,
         );
     }
+}
 
-    fn register_view(&self, cpu: &CPU) -> [String; 7] {
-        [
-            format!(
-                "A: {:02X}  |  F: {:02X}",
-                cpu.registers.a,
-                u8::from(&cpu.registers.f)
-            ),
-            format!("B: {:02X}  |  C: {:02X}", cpu.registers.b, cpu.registers.c),
-            format!("D: {:02X}  |  E: {:02X}", cpu.registers.d, cpu.registers.e),
-            format!("H: {:02X}  |  L: {:02X}", cpu.registers.h, cpu.registers.l),
-            format!("SP: {:04X}", cpu.registers.sp),
-            format!("PC: {:04X}", cpu.registers.pc),
-            format!(
-                "Flags: {} {} {} {}",
-                if cpu.registers.f.zero { 'Z' } else { '-' },
-                if cpu.registers.f.negative { 'N' } else { '-' },
-                if cpu.registers.f.carry { 'C' } else { '-' },
-                if cpu.registers.f.half_carry { 'H' } else { '-' }
-            ),
-        ]
-    }
+fn register_view(cpu: &CPU) -> [String; 7] {
+    [
+        format!(
+            "A: {:02X}  |  F: {:02X}",
+            cpu.registers.a,
+            u8::from(&cpu.registers.f)
+        ),
+        format!("B: {:02X}  |  C: {:02X}", cpu.registers.b, cpu.registers.c),
+        format!("D: {:02X}  |  E: {:02X}", cpu.registers.d, cpu.registers.e),
+        format!("H: {:02X}  |  L: {:02X}", cpu.registers.h, cpu.registers.l),
+        format!("SP: {:04X}", cpu.registers.sp),
+        format!("PC: {:04X}", cpu.registers.pc),
+        format!(
+            "Flags: {} {} {} {}",
+            if cpu.registers.f.zero { 'Z' } else { '-' },
+            if cpu.registers.f.negative { 'N' } else { '-' },
+            if cpu.registers.f.carry { 'C' } else { '-' },
+            if cpu.registers.f.half_carry { 'H' } else { '-' }
+        ),
+    ]
 }
 
 pub struct Debugger {
@@ -155,18 +154,18 @@ pub struct Debugger {
 
 impl Debugger {
     pub fn new(
-        emulator: Arc<RwLock<EmulatorState>>,
-        terminated: Arc<AtomicBool>,
-        paused: Arc<AtomicBool>,
+        emulator: &Arc<RwLock<EmulatorState>>,
+        terminated: &Arc<AtomicBool>,
+        paused: &Arc<AtomicBool>,
     ) -> Self {
         let emulator_snapshot = {
             let original = emulator.read().unwrap();
-            Arc::new(Mutex::new(original.clone()))
+            Arc::new(Mutex::new(*original))
         };
 
         let snapshot_thread = {
-            let terminated_clone = Arc::clone(&terminated);
-            let emulator_clone = Arc::clone(&emulator);
+            let terminated_clone = Arc::clone(terminated);
+            let emulator_clone = Arc::clone(emulator);
             let snapshot_clone = Arc::clone(&emulator_snapshot);
 
             thread::spawn(move || {
@@ -190,10 +189,10 @@ impl Debugger {
             let mut terminal = ratatui::init();
 
             let tui = Arc::new(Mutex::new(TUI::new()));
-            let emulator_clone = Arc::clone(&emulator);
-            let paused_clone = Arc::clone(&paused);
+            let emulator_clone = Arc::clone(emulator);
+            let paused_clone = Arc::clone(paused);
             let snapshot_clone = Arc::clone(&emulator_snapshot);
-            let terminated_clone = Arc::clone(&terminated);
+            let terminated_clone = Arc::clone(terminated);
 
             thread::spawn(move || {
                 while !terminated_clone.load(Ordering::Relaxed) {

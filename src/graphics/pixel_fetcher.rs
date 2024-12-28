@@ -86,7 +86,7 @@ impl PixelFetcher {
         self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
 
-    pub fn step(&mut self, bus: &mut Bus, passed_t_cycles: u8, current_frame: &mut PixelData) {
+    pub fn step(&mut self, bus: &Bus, passed_t_cycles: u8, current_frame: &mut PixelData) {
         let mut t_counter = 0;
 
         while t_counter < passed_t_cycles {
@@ -213,21 +213,13 @@ impl PixelFetcher {
 
         self.render_x += 1;
 
-        return true;
+        true
     }
 
     fn window_reached(&self, bus: &Bus) -> bool {
         if !bus.window_enabled() {
             return false;
         }
-
-        // eprintln!(
-        //     "Window status... WE: {}, WY: {}, WX: {}, SL: {}",
-        //     bus.window_enabled(),
-        //     bus.get_window_y(),
-        //     bus.get_window_x(),
-        //     self.current_line
-        // );
 
         if bus.get_window_y() > self.current_line {
             return false;
@@ -237,7 +229,7 @@ impl PixelFetcher {
             return false;
         }
 
-        return true;
+        true
     }
 
     fn set_window_fetch_mode(&mut self) {

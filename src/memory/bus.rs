@@ -133,11 +133,11 @@ impl Bus {
     }
 }
 
-pub fn get_bit_status(byte: u8, position: u8) -> bool {
+pub const fn get_bit_status(byte: u8, position: u8) -> bool {
     byte & (1 << position) != 0
 }
 
-pub fn set_bit_status(byte: u8, position: u8, status: bool) -> u8 {
+pub const fn set_bit_status(byte: u8, position: u8, status: bool) -> u8 {
     if status {
         byte | 1 << position
     } else {

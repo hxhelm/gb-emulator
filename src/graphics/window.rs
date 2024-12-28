@@ -167,7 +167,7 @@ impl ApplicationHandler for App {
 
 impl App {
     pub fn init(terminated: Arc<AtomicBool>, frame_receiver: Receiver<PixelData>) -> Self {
-        App {
+        Self {
             frame_receiver,
             pixels: None,
             window: None,

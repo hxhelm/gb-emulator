@@ -196,10 +196,6 @@ impl Bus {
         self.lcd_status_set_lyc(self.lcd_y_compare());
 
         if self.lcd_status_condition().lyc && self.lcd_y_compare() {
-            // eprintln!(
-            //     "Requested STAT interrupt. Scanline: {}",
-            //     self.lcd_current_line()
-            // );
             self.request_stat_interrupt();
         }
     }

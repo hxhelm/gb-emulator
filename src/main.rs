@@ -12,7 +12,7 @@ mod graphics;
 mod memory;
 mod tui;
 
-const PATH_DMG_BOOT_ROM: &'static str = "./boot/dmg.bin";
+const PATH_DMG_BOOT_ROM: &str = "./boot/dmg.bin";
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -51,9 +51,9 @@ fn main() -> Result<()> {
 
     let debugger = if cli.open_debugger {
         Some(Debugger::new(
-            emulator.state.clone(),
-            emulator.terminated.clone(),
-            emulator.paused.clone(),
+            &emulator.state.clone(),
+            &emulator.terminated.clone(),
+            &emulator.paused.clone(),
         ))
     } else {
         None
