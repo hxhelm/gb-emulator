@@ -71,7 +71,6 @@ impl PPU {
         self.mode = match self.mode {
             PPUMode::OBJSearch => {
                 self.scanline_x_scroll = bus.get_scroll_x();
-                self.pixel_fetcher.reset_line(bus);
                 PPUMode::SendPixels
             }
             PPUMode::SendPixels => PPUMode::HorizontalBlank,
@@ -82,6 +81,7 @@ impl PPU {
                     bus.request_vblank_interrupt();
                     PPUMode::VerticalBlank
                 } else {
+                    self.pixel_fetcher.reset_line(bus);
                     PPUMode::OBJSearch
                 }
             }
@@ -90,16 +90,35 @@ impl PPU {
 
                 if bus.lcd_current_line() == 0 {
                     self.screen_finished = true;
+                    self.pixel_fetcher.reset_frame(bus);
                     PPUMode::OBJSearch
                 } else {
+                    self.pixel_fetcher.reset_line(bus);
                     PPUMode::VerticalBlank
                 }
             }
         };
+        self.update_stat_mode(bus);
+    }
+
+    fn update_stat_mode(&self, bus: &mut Bus) {
+        bus.lcd_status_set_mode(self.mode);
+
+        let stat_conditions = bus.lcd_status_condition();
+        let trigger_interrupt = match self.mode {
+            PPUMode::OBJSearch if stat_conditions.mode2 => true,
+            PPUMode::VerticalBlank if stat_conditions.mode1 => true,
+            PPUMode::HorizontalBlank if stat_conditions.mode0 => true,
+            _ => false,
+        };
+
+        if trigger_interrupt {
+            bus.request_stat_interrupt();
+        }
     }
 
     pub(crate) fn step(&mut self, t_cycles: u8, bus: &mut Bus) -> Option<PixelData> {
-        if !bus.get_lcd_enable() {
+        if !bus.lcd_enabled() {
             return None;
         }
 

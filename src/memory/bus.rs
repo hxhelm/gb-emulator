@@ -1,5 +1,5 @@
 use super::mem::{Memory, ROM_BANK_0_START, ROM_BANK_1_END};
-use crate::graphics::PPUMode;
+use crate::graphics::{PPUMode, LCD_Y_COMPARE};
 
 const BOOT_DISABLE: u16 = 0xFF50;
 const BOOT_ROM_LENGTH: u16 = 0x0100;
@@ -38,6 +38,10 @@ impl Bus {
             BOOT_DISABLE => {
                 self.boot_rom_disabled = byte != 0;
                 self.memory.write(address, byte);
+            }
+            LCD_Y_COMPARE => {
+                self.memory.write(address, byte);
+                self.update_stat_lyc();
             }
             _ => self.memory.write(address, byte),
         }

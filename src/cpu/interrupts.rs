@@ -44,7 +44,6 @@ impl Bus {
         self.enable_interrupt_request(INTERRUPT_VBLANK_BIT)
     }
 
-    #[allow(unused)]
     pub fn request_stat_interrupt(&mut self) {
         self.enable_interrupt_request(INTERRUPT_STAT_BIT)
     }

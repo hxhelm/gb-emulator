@@ -1,6 +1,4 @@
 #![allow(unused)]
-use std::collections::VecDeque;
-
 use crate::memory::bus::Bus;
 
 use super::{fifo::Fifo, PixelData, LCD_WIDTH};
@@ -11,15 +9,6 @@ const WINDOW_X: u16 = 0xFF4B;
 const WINDOW_Y: u16 = 0xFF4A;
 const TILE_SIZE: u8 = 8;
 
-impl Bus {
-    /// Calculate the bottom right coordinate of the viewport using the scroll registers.
-    fn get_bottom_right_vp(&self) -> (u16, u16) {
-        let x = self.get_scroll_x() as u16;
-        let y = self.get_scroll_y() as u16;
-        ((y + 143) % 256, (x + 159) % 256)
-    }
-}
-
 #[derive(Clone, Copy)]
 enum PixelFetcherStep {
     GetTile,
@@ -29,15 +18,22 @@ enum PixelFetcherStep {
     Push,
 }
 
+#[derive(Default, Clone, Copy)]
+enum FetchMode {
+    #[default]
+    Background,
+    Window,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct PixelFetcher {
     current_step: PixelFetcherStep,
     current_line: u8,
     /// Tile number fetching
+    fetch_mode: FetchMode,
     fetcher_x: u8,
-    is_fetching_window: bool,
-    window_line_counter: u8,
     tile_number: u8,
+    window_line_counter: u8,
     /// Temporary tile data
     tile_data_address: u16,
     tile_data_low: u8,
@@ -55,10 +51,10 @@ impl PixelFetcher {
         Self {
             current_step: PixelFetcherStep::Sleep(6),
             current_line: 0,
+            fetch_mode: FetchMode::default(),
             fetcher_x: 0,
-            is_fetching_window: false,
-            window_line_counter: 0,
             tile_number: 0,
+            window_line_counter: 0,
             tile_data_address: 0,
             tile_data_low: 0,
             tile_data_high: 0,
@@ -70,7 +66,22 @@ impl PixelFetcher {
     }
 
     pub fn reset_line(&mut self, bus: &Bus) {
+        let window_line_counter = if matches!(self.fetch_mode, FetchMode::Window) {
+            self.window_line_counter.wrapping_add(1)
+        } else {
+            self.window_line_counter
+        };
+
         *self = Self::init();
+
+        self.current_line = bus.lcd_current_line();
+        self.window_line_counter = window_line_counter;
+        self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
+    }
+
+    pub fn reset_frame(&mut self, bus: &Bus) {
+        *self = Self::init();
+
         self.current_line = bus.lcd_current_line();
         self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
@@ -112,7 +123,12 @@ impl PixelFetcher {
             self.current_step = next_step;
 
             for _ in (0..spent_cycles) {
-                self.try_push_pixel_to_screen(current_frame);
+                let pixel_pushed = self.try_push_pixel_to_screen(current_frame);
+
+                if pixel_pushed && self.window_reached(bus) {
+                    self.set_window_fetch_mode();
+                    break;
+                }
             }
 
             t_counter += spent_cycles;
@@ -120,14 +136,23 @@ impl PixelFetcher {
     }
 
     fn fetch_tile_number(&self, bus: &Bus) -> u8 {
-        // TODO: window handling
+        let tilemap_address = match self.fetch_mode {
+            FetchMode::Background => {
+                let x_offset: u16 =
+                    ((self.fetcher_x.wrapping_add(bus.get_scroll_x() / TILE_SIZE)) % 32).into();
+                let y_offset: u16 =
+                    ((self.current_line.wrapping_add(bus.get_scroll_y())) / TILE_SIZE).into();
 
-        let x_offset: u16 =
-            ((self.fetcher_x.wrapping_add(bus.get_scroll_x() / TILE_SIZE)) % 32).into();
-        let y_offset: u16 =
-            ((self.current_line.wrapping_add(bus.get_scroll_y())) / TILE_SIZE).into();
+                bus.get_bg_tile_map().start() + (y_offset * 32) + x_offset
+            }
+            FetchMode::Window => {
+                let x_offset: u16 = self.fetcher_x.into();
+                let y_offset: u16 = (self.window_line_counter / TILE_SIZE).into();
 
-        let tilemap_address = bus.get_bg_tile_map().start() + (y_offset * 32) + x_offset;
+                bus.get_window_tile_map().start() + (y_offset * 32) + x_offset
+            }
+        };
+
         bus.read_byte_unchecked(tilemap_address)
     }
 
@@ -140,7 +165,12 @@ impl PixelFetcher {
             .get_bg_window_tile_data_area()
             .get_tile_address(self.tile_number);
 
-        let offset = 2 * (self.current_line.wrapping_add(bus.get_scroll_y()) % TILE_SIZE);
+        let offset = 2
+            * (match self.fetch_mode {
+                FetchMode::Background => self.current_line.wrapping_add(bus.get_scroll_y()),
+                FetchMode::Window => self.window_line_counter,
+            } % TILE_SIZE);
+
         self.tile_data_address = address + offset as u16;
 
         bus.read_byte_unchecked(self.tile_data_address)
@@ -164,23 +194,60 @@ impl PixelFetcher {
         self.fetcher_x += 1;
     }
 
-    fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) {
+    fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) -> bool {
         if self.discard_counter > 0 && self.background_queue.pop().is_ok() {
             self.discard_counter -= 1;
-            return;
+            return false;
         }
 
         let Ok(bg_pixel) = self.background_queue.pop() else {
-            return;
+            return false;
         };
 
         if self.render_x > 159 {
-            return;
+            return false;
         }
 
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = bg_pixel;
 
         self.render_x += 1;
+
+        return true;
+    }
+
+    fn window_reached(&self, bus: &Bus) -> bool {
+        if !bus.window_enabled() {
+            return false;
+        }
+
+        // eprintln!(
+        //     "Window status... WE: {}, WY: {}, WX: {}, SL: {}",
+        //     bus.window_enabled(),
+        //     bus.get_window_y(),
+        //     bus.get_window_x(),
+        //     self.current_line
+        // );
+
+        if bus.get_window_y() > self.current_line {
+            return false;
+        }
+
+        if bus.get_window_x() > self.render_x {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn set_window_fetch_mode(&mut self) {
+        if matches!(self.fetch_mode, FetchMode::Window) {
+            return;
+        }
+
+        self.fetch_mode = FetchMode::Window;
+        self.fetcher_x = 0;
+        self.current_step = PixelFetcherStep::GetTile;
+        self.background_queue.clear();
     }
 }
