@@ -123,7 +123,7 @@ impl PixelFetcher {
             self.current_step = next_step;
 
             for _ in (0..spent_cycles) {
-                let pixel_pushed = self.try_push_pixel_to_screen(current_frame);
+                let pixel_pushed = self.try_push_pixel_to_screen(bus, current_frame);
 
                 if pixel_pushed && self.window_reached(bus) {
                     self.set_window_fetch_mode();
@@ -135,6 +135,8 @@ impl PixelFetcher {
         }
     }
 
+    /// Access the current 32x32 tile map and return the tile index pased on the current position.
+    /// The current tile map is detected internally using the LCDC register.
     fn fetch_tile_number(&self, bus: &Bus) -> u8 {
         let tilemap_address = match self.fetch_mode {
             FetchMode::Background => {
@@ -156,8 +158,6 @@ impl PixelFetcher {
         bus.read_byte_unchecked(tilemap_address)
     }
 
-    /// Access the current 32x32 tile map by their index. The current tile map is detected
-    /// internally using the LCDC register.
     /// Returns the lower byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_low(&mut self, bus: &Bus) -> u8 {
@@ -176,13 +176,15 @@ impl PixelFetcher {
         bus.read_byte_unchecked(self.tile_data_address)
     }
 
-    /// Read the next byte at the address set in `fetch_tile_data_low`
+    /// Read the next byte at the address set in `fetch_tile_data_low`.
     /// Returns the higher byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_high(&self, bus: &Bus) -> u8 {
         bus.read_byte_unchecked(self.tile_data_address + 1)
     }
 
+    /// Iterate through the current row of the fetched tile and push combined pixel data to the
+    /// pixel fifo queue (`self.background_queue`).
     fn push_pixel_data_to_queue(&mut self) {
         for i in 0..TILE_SIZE {
             let offset = 7 - i;
@@ -194,7 +196,8 @@ impl PixelFetcher {
         self.fetcher_x += 1;
     }
 
-    fn try_push_pixel_to_screen(&mut self, frame: &mut PixelData) -> bool {
+    /// Tries to push pixels from the queues to the current frame.
+    fn try_push_pixel_to_screen(&mut self, bus: &Bus, frame: &mut PixelData) -> bool {
         if self.discard_counter > 0 && self.background_queue.pop().is_ok() {
             self.discard_counter -= 1;
             return false;
@@ -207,6 +210,8 @@ impl PixelFetcher {
         if self.render_x > 159 {
             return false;
         }
+
+        let bg_pixel = if bus.bg_window_enabled() { bg_pixel } else { 0 };
 
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = bg_pixel;

@@ -123,11 +123,12 @@ impl Bus {
         self.get_lcdc_bit(LCDC_BIT_OBJ_SIZE)
     }
 
-    /// LCDC.2: Returns whether objects are displayed or not
+    /// LCDC.1: Returns whether objects are displayed
     pub(crate) fn objects_enabled(&self) -> bool {
         self.get_lcdc_bit(LCDC_BIT_OBJ_ENABLE)
     }
 
+    /// LCDC.0: Return whether the background & window are displayed
     pub(crate) fn bg_window_enabled(&self) -> bool {
         self.get_lcdc_bit(LCDC_BIT_BG_WINDOW_ENABLE)
     }
