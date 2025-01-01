@@ -3,8 +3,6 @@ use crate::memory::bus::{get_bit_status, set_bit_status, Bus};
 
 use super::PPUMode;
 
-/// LCDC register address
-pub const LCD_CONTROL: u16 = 0xFF40;
 const LCDC_BIT_LCD_ENABLE: u8 = 7;
 const LCDC_BIT_WINDOW_TILE_MAP: u8 = 6;
 const LCDC_BIT_WINDOW_ENABLE: u8 = 5;
@@ -16,13 +14,13 @@ const LCDC_BIT_BG_WINDOW_ENABLE: u8 = 0;
 
 impl Bus {
     fn get_lcdc_bit(&self, position: u8) -> bool {
-        get_bit_status(self.read_byte(LCD_CONTROL), position)
+        get_bit_status(self.get_lcd_control(), position)
     }
 
     fn set_lcdc_bit(&mut self, position: u8, status: bool) {
-        let current = self.read_byte(LCD_CONTROL);
+        let current = self.get_lcd_control();
         let new = set_bit_status(current, position, status);
-        self.write_byte(LCD_CONTROL, new);
+        self.set_lcd_control(new)
     }
 
     /// LCDC.7: Returns whether LCD & PPU are enabled
@@ -134,14 +132,8 @@ impl Bus {
     }
 }
 
-/// STAT register address
-pub const LCD_STAT: u16 = 0xFF41;
 const LCD_STAT_BIT_LYC: u8 = 2;
 const LCD_STAT_BIT_MODE: u8 = 0;
-/// LY register address
-pub const LCD_Y: u16 = 0xFF44;
-/// LYC register address
-pub const LCD_Y_COMPARE: u16 = 0xFF45;
 
 pub(super) struct StatCondition {
     pub(super) lyc: bool,
@@ -152,7 +144,7 @@ pub(super) struct StatCondition {
 
 impl Bus {
     pub(super) fn lcd_status_condition(&self) -> StatCondition {
-        let stat = self.read_byte(LCD_STAT) >> 3;
+        let stat = self.get_lcd_stat() >> 3;
 
         StatCondition {
             lyc: stat & 0b1000 != 0,
@@ -163,8 +155,8 @@ impl Bus {
     }
 
     pub(super) fn lcd_status_set_lyc(&mut self, condition: bool) {
-        let value = set_bit_status(self.read_byte(LCD_STAT), LCD_STAT_BIT_LYC, condition);
-        self.write_byte(LCD_STAT, value);
+        let value = set_bit_status(self.get_lcd_stat(), LCD_STAT_BIT_LYC, condition);
+        self.set_lcd_stat(value);
     }
 
     pub(super) fn lcd_status_set_mode(&mut self, mode: PPUMode) {
@@ -175,22 +167,21 @@ impl Bus {
             PPUMode::VerticalBlank => 0b1,
         };
 
-        let current = self.read_byte(LCD_STAT);
-        self.write_byte(LCD_STAT, current & (0xFC | value));
+        let current = self.get_lcd_stat();
+        self.set_lcd_stat(current & (0xFC | value));
     }
 
-    pub(crate) fn lcd_update_line(&mut self) {
-        let ly = self.read_byte(LCD_Y);
-        self.write_byte(LCD_Y, (ly + 1) % 154);
+    pub(crate) fn update_line(&mut self) {
+        self.set_lcd_y(self.get_lcd_y() + 1);
         self.update_stat_lyc();
     }
 
-    pub(crate) fn lcd_current_line(&self) -> u8 {
-        self.read_byte(LCD_Y)
+    pub(crate) fn current_line(&self) -> u8 {
+        self.get_lcd_y()
     }
 
     pub(super) fn lcd_y_compare(&self) -> bool {
-        self.read_byte(LCD_Y) == self.read_byte(LCD_Y_COMPARE)
+        self.get_lcd_y() == self.get_lcd_y_compare()
     }
 
     pub fn update_stat_lyc(&mut self) {
@@ -199,32 +190,5 @@ impl Bus {
         if self.lcd_status_condition().lyc && self.lcd_y_compare() {
             self.request_stat_interrupt();
         }
-    }
-}
-
-/// WY register address
-pub const WINDOW_Y: u16 = 0xFF4A;
-/// WX register address
-pub const WINDOW_X: u16 = 0xFF4B;
-/// SCY register address
-pub const SCROLL_Y: u16 = 0xFF42;
-/// SCX register address
-pub const SCROLL_X: u16 = 0xFF43;
-
-impl Bus {
-    pub(crate) fn get_window_y(&self) -> u8 {
-        self.read_byte(WINDOW_Y)
-    }
-
-    pub(crate) fn get_window_x(&self) -> u8 {
-        self.read_byte(WINDOW_X).wrapping_sub(7)
-    }
-
-    pub(crate) fn get_scroll_x(&self) -> u8 {
-        self.read_byte(SCROLL_X)
-    }
-
-    pub(crate) fn get_scroll_y(&self) -> u8 {
-        self.read_byte(SCROLL_Y)
     }
 }

@@ -74,7 +74,7 @@ impl PixelFetcher {
 
         *self = Self::init();
 
-        self.current_line = bus.lcd_current_line();
+        self.current_line = bus.current_line();
         self.window_line_counter = window_line_counter;
         self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
@@ -82,7 +82,7 @@ impl PixelFetcher {
     pub fn reset_frame(&mut self, bus: &Bus) {
         *self = Self::init();
 
-        self.current_line = bus.lcd_current_line();
+        self.current_line = bus.current_line();
         self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
 
@@ -155,7 +155,7 @@ impl PixelFetcher {
             }
         };
 
-        bus.read_byte_unchecked(tilemap_address)
+        bus.ppu_read(tilemap_address)
     }
 
     /// Returns the lower byte of the tile at the address pointed to by the tile map at the given
@@ -173,14 +173,14 @@ impl PixelFetcher {
 
         self.tile_data_address = address + offset as u16;
 
-        bus.read_byte_unchecked(self.tile_data_address)
+        bus.ppu_read(self.tile_data_address)
     }
 
     /// Read the next byte at the address set in `fetch_tile_data_low`.
     /// Returns the higher byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_high(&self, bus: &Bus) -> u8 {
-        bus.read_byte_unchecked(self.tile_data_address + 1)
+        bus.ppu_read(self.tile_data_address + 1)
     }
 
     /// Iterate through the current row of the fetched tile and push combined pixel data to the

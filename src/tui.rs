@@ -1,4 +1,4 @@
-use crate::memory::MEMORY_BUS_SIZE;
+use crate::memory::bus::BUS_SIZE;
 use crate::{cpu::CPU, emulator::EmulatorState};
 use crossterm::event::{self, Event, KeyCode};
 use ratatui::{
@@ -83,14 +83,13 @@ impl TUI {
 
         let memory_row_offset = self.memory_vertical_scroll * MEMORY_VIEW_ELEMENTS_PER_LINE;
         let clamped_memory_row_offset =
-            memory_row_offset.min(MEMORY_BUS_SIZE.saturating_sub(memory_buffer_size));
-        let memory_range_end =
-            (clamped_memory_row_offset + memory_buffer_size).min(MEMORY_BUS_SIZE);
+            memory_row_offset.min(BUS_SIZE.saturating_sub(memory_buffer_size));
+        let memory_range_end = (clamped_memory_row_offset + memory_buffer_size).min(BUS_SIZE);
         let memory_range_length = memory_range_end.saturating_sub(clamped_memory_row_offset);
 
         let memory_text = cpu
             .bus
-            .read_range(clamped_memory_row_offset as u16, memory_range_length)
+            .read_range_debug(clamped_memory_row_offset as u16, memory_range_length as u16)
             .chunks(MEMORY_VIEW_ELEMENTS_PER_LINE)
             .enumerate()
             .map(|(i, chunk)| {
@@ -108,8 +107,8 @@ impl TUI {
 
         self.memory_vertical_scroll_state = self
             .memory_vertical_scroll_state
-            .content_length(MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE);
-        self.memory_vertical_scroll_max = (MEMORY_BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE)
+            .content_length(BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE);
+        self.memory_vertical_scroll_max = (BUS_SIZE / MEMORY_VIEW_ELEMENTS_PER_LINE)
             .saturating_sub(self.memory_view_block_height);
 
         let memory_view = Paragraph::new(memory_text)
@@ -160,7 +159,7 @@ impl Debugger {
     ) -> Self {
         let emulator_snapshot = {
             let original = emulator.read().unwrap();
-            Arc::new(Mutex::new(*original))
+            Arc::new(Mutex::new(original.clone()))
         };
 
         let snapshot_thread = {
@@ -177,7 +176,7 @@ impl Debugger {
                         };
 
                         let mut snap = snapshot_clone.lock().unwrap();
-                        *snap = *emulator;
+                        *snap = emulator.clone();
                     }
 
                     thread::sleep(Duration::from_millis(SNAPSHOT_DELAY_MS));

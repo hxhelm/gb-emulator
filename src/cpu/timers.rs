@@ -1,11 +1,5 @@
 use crate::cpu::CPU;
-
-/// TIMA register address
-pub(super) const TIMER_COUNTER: u16 = 0xFF05;
-/// TMA register address
-pub(super) const TIMER_MODULO: u16 = 0xFF06;
-/// TAC register address
-pub(super) const TIMER_CONTROL: u16 = 0xFF07;
+use crate::memory::bus::{TIMER_CONTROL, TIMER_COUNTER, TIMER_MODULO};
 
 #[derive(Default, Clone, Copy)]
 pub struct Clock {

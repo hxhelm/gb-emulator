@@ -1,10 +1,6 @@
 use crate::cpu::CPU;
-use crate::memory::bus::Bus;
+use crate::memory::bus::{Bus, INTERRUPT_ENABLE, INTERRUPT_REQUESTS};
 
-/// IE register address
-pub(super) const INTERRUPT_ENABLE: u16 = 0xFFFF;
-/// IF register address
-pub(super) const INTERRUPT_FLAG: u16 = 0xFF0F;
 const INTERRUPT_VBLANK_BIT: u8 = 0b1;
 const INTERRUPT_STAT_BIT: u8 = 0b10;
 const INTERRUPT_TIMER_BIT: u8 = 0b100;
@@ -67,7 +63,7 @@ impl Bus {
     }
 
     fn get_interrupt_flags(&self) -> u8 {
-        self.read_byte(INTERRUPT_FLAG) | 0xE0
+        self.read_byte(INTERRUPT_REQUESTS) | 0xE0
     }
 
     fn is_interrupt_pending(&self) -> bool {
@@ -89,13 +85,13 @@ impl Bus {
     fn clear_interrupt_request(&mut self, bit: u8) {
         let flags = self.get_interrupt_flags();
 
-        self.write_byte(INTERRUPT_FLAG, flags & !bit);
+        self.write_byte(INTERRUPT_REQUESTS, flags & !bit);
     }
 
     fn enable_interrupt_request(&mut self, bit: u8) {
         let flags = self.get_interrupt_flags();
 
-        self.write_byte(INTERRUPT_FLAG, flags | bit);
+        self.write_byte(INTERRUPT_REQUESTS, flags | bit);
     }
 }
 

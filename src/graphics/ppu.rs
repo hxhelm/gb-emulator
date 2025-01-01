@@ -75,9 +75,9 @@ impl PPU {
             }
             PPUMode::SendPixels => PPUMode::HorizontalBlank,
             PPUMode::HorizontalBlank => {
-                bus.lcd_update_line();
+                bus.update_line();
 
-                if bus.lcd_current_line() == 144 {
+                if bus.current_line() == 144 {
                     bus.request_vblank_interrupt();
                     PPUMode::VerticalBlank
                 } else {
@@ -86,9 +86,9 @@ impl PPU {
                 }
             }
             PPUMode::VerticalBlank => {
-                bus.lcd_update_line();
+                bus.update_line();
 
-                if bus.lcd_current_line() == 0 {
+                if bus.current_line() == 0 {
                     self.screen_finished = true;
                     self.pixel_fetcher.reset_frame(bus);
                     PPUMode::OBJSearch

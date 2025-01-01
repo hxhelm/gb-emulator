@@ -2,9 +2,8 @@ use super::instructions::Executable;
 use super::interrupts::{HaltState, InterruptState};
 use super::opcodes::get_instruction;
 use super::registers::*;
-use super::serial::{SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA};
 use super::timers::Clock;
-use crate::memory::bus::Bus;
+use crate::memory::bus::{Bus, SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA};
 
 #[derive(Default, Clone, Copy)]
 pub(crate) struct InstructionData {
@@ -13,7 +12,7 @@ pub(crate) struct InstructionData {
     pub(super) param2: u8,
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
@@ -21,14 +20,13 @@ pub struct CPU {
     /// Halt state and halt bug check
     pub(crate) halt_state: HaltState,
     /// Timers
-    pub(crate) clock: Clock,
-    pub(crate) last_timer_update: u64,
+    pub(super) clock: Clock,
+    pub(super) last_timer_update: u64,
     /// Interrupt handling
     pub(crate) interrupt_state: InterruptState,
 }
 
 impl CPU {
-    // TODO: make boot rom optional? look into expected state after boot rom
     pub fn init(boot_rom: Option<&[u8]>, cartridge_contents: &[u8]) -> Self {
         let mut cpu = Self::default();
 
@@ -124,13 +122,12 @@ impl CPU {
 
         eprint!("PC: 00:{:004X} ", self.registers.pc);
 
-        let bytes = self.bus.read_range(self.registers.pc, 4);
-
-        assert_eq!(bytes.len(), 4);
-
         eprint!(
             "({:02X} {:02X} {:02X} {:02X})\n",
-            bytes[0], bytes[1], bytes[2], bytes[3]
+            self.bus.read_byte(self.registers.pc),
+            self.bus.read_byte(self.registers.pc + 1),
+            self.bus.read_byte(self.registers.pc + 2),
+            self.bus.read_byte(self.registers.pc + 3),
         );
     }
 }

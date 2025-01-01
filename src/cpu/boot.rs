@@ -1,17 +1,9 @@
-use crate::{
-    cpu::CPU,
-    graphics::{
-        LCD_CONTROL, LCD_STAT, LCD_Y, LCD_Y_COMPARE, SCROLL_X, SCROLL_Y, WINDOW_X, WINDOW_Y,
-    },
+use crate::cpu::CPU;
+use crate::memory::bus::{
+    INTERRUPT_ENABLE, INTERRUPT_REQUESTS, JOYP, LCD_Y_COMPARE, SCROLL_X, SCROLL_Y,
+    SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA, TIMER_CONTROL, TIMER_COUNTER, TIMER_MODULO,
+    WINDOW_X, WINDOW_Y,
 };
-
-use super::{
-    interrupts::{INTERRUPT_ENABLE, INTERRUPT_FLAG},
-    serial::{SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA},
-    timers::{TIMER_CONTROL, TIMER_COUNTER, TIMER_MODULO},
-};
-
-const JOYP: u16 = 0xFF00;
 
 impl CPU {
     pub(super) fn load_cartridge(&mut self, rom: &[u8]) {
@@ -21,8 +13,8 @@ impl CPU {
     pub(super) fn load_boot_rom(&mut self, boot_rom: &[u8]) {
         self.bus.write_boot_rom(boot_rom);
 
-        // Stub JOYPAD Status to 0xFF until proper implementation
-        self.bus.write_byte(JOYP, 0xFF);
+        // Stub JOYPAD Status to 0xCF until proper implementation
+        self.bus.write_byte(JOYP, 0xCF);
     }
 
     /// Set state according to https://gbdev.io/pandocs/Power_Up_Sequence.html
@@ -55,7 +47,7 @@ impl CPU {
         self.bus.write_byte(TIMER_COUNTER, 0x00);
         self.bus.write_byte(TIMER_MODULO, 0x00);
         self.bus.write_byte(TIMER_CONTROL, 0xF8);
-        self.bus.write_byte(INTERRUPT_FLAG, 0xE1);
+        self.bus.write_byte(INTERRUPT_REQUESTS, 0xE1);
 
         // NR
         // self.bus.write_byte(0xFF10, 0x80);
@@ -80,11 +72,11 @@ impl CPU {
         // self.bus.write_byte(0xFF25, 0xF3);
         // self.bus.write_byte(0xFF26, 0xF1);
 
-        self.bus.write_byte(LCD_CONTROL, 0x91);
-        self.bus.write_byte(LCD_STAT, 0x85);
+        self.bus.set_lcd_control(0x91);
+        self.bus.set_lcd_stat(0x85);
         self.bus.write_byte(SCROLL_Y, 0x00);
         self.bus.write_byte(SCROLL_X, 0x00);
-        self.bus.write_byte(LCD_Y, 0x00);
+        self.bus.set_lcd_y(0x00);
         self.bus.write_byte(LCD_Y_COMPARE, 0x00);
 
         // DMA

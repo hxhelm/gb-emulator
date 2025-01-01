@@ -12,7 +12,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct EmulatorState {
     pub cpu: CPU,
     pub ppu: PPU,
