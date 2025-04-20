@@ -4,3 +4,6 @@
 # folder for boot roms
 boot/*
 !boot/.gitkeep
+
+# data directory used for temporary files
+data
