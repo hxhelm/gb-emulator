@@ -25,7 +25,7 @@ const BOX_SIZE: i16 = 32;
 pub struct App {
     // TODO: may receive events other than Frames
     frame_receiver: Receiver<PixelData>,
-    pixels: Option<Pixels>,
+    pixels: Option<Pixels<'static>>,
     terminated: Arc<AtomicBool>,
     window: Option<Arc<Window>>,
 }
@@ -51,9 +51,8 @@ impl App {
 
         self.pixels = {
             let window_size = window.inner_size();
-            let window_clone = window.clone();
             let surface_texture =
-                SurfaceTexture::new(window_size.width, window_size.height, &window_clone);
+                SurfaceTexture::new(window_size.width, window_size.height, window.clone());
             match Pixels::new(LCD_WIDTH as u32, LCD_HEIGHT as u32, surface_texture) {
                 Ok(pixels) => {
                     window.request_redraw();
