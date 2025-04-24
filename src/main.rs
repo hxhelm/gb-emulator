@@ -62,8 +62,7 @@ fn main() -> Result<()> {
     emulator.start();
 
     if let Some(debugger) = debugger {
-        debugger.snapshot_thread.join().unwrap();
-        debugger.tui_thread.join().unwrap();
+        debugger.shutdown();
     }
 
     emulator.emulation_thread.join().unwrap();

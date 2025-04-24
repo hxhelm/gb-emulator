@@ -13,6 +13,7 @@ error-iter = "0.4.1"
 log = "0.4.22"
 pixels = "0.15.0"
 ratatui = "0.29.0"
+tui-logger = "0.17.1"
 winit = { version = "0.30.5", features = ["rwh_05"] }
 winit_input_helper = "0.16.0"
 
