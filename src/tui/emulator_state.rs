@@ -1,6 +1,7 @@
 use crate::memory::bus::BUS_SIZE;
 use crate::{cpu::CPU, emulator::EmulatorState};
 use crossterm::event::{Event, KeyCode};
+use ratatui::layout::Rect;
 use ratatui::{
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
@@ -16,6 +17,7 @@ use super::{AppEvent, Page};
 
 const MEMORY_VIEW_ELEMENTS_PER_LINE: usize = 16;
 
+#[derive(Clone)]
 pub(super) struct EmulatorStateView {
     memory_vertical_scroll_state: ScrollbarState,
     memory_vertical_scroll: usize,
@@ -37,7 +39,7 @@ impl EmulatorStateView {
 }
 
 impl Page for EmulatorStateView {
-    fn draw(&mut self, frame: &mut Frame) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let cpu = &self.emulator_snapshot.read().unwrap().cpu;
 
         let chunks = Layout::default()
@@ -48,7 +50,7 @@ impl Page for EmulatorStateView {
                 Constraint::Min(5),
                 Constraint::Length(3),
             ])
-            .split(frame.area());
+            .split(area);
 
         let instruction_widget = Paragraph::new(format!(
             "Current Instruction: {:02X}",

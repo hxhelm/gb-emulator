@@ -100,7 +100,7 @@ impl CPU {
         if self.bus.read_byte(SERIAL_TRANSFER_CONTROL) == 0x81 {
             let character = self.bus.read_byte(SERIAL_TRANSFER_DATA);
             if character != 0x00 {
-                eprint!("{}", character as char);
+                log::debug!("{}", character as char);
                 self.bus.write_byte(SERIAL_TRANSFER_DATA, 0x00);
             }
         }
@@ -108,21 +108,21 @@ impl CPU {
 
     #[allow(unused)]
     pub fn log_state(&self) {
-        eprint!("A: {:02X} ", self.registers.a);
+        log::debug!("A: {:02X} ", self.registers.a);
         let f: u8 = (&self.registers.f).into();
-        eprint!("F: {:02X} ", f);
-        eprint!("B: {:02X} ", self.registers.b);
-        eprint!("C: {:02X} ", self.registers.c);
-        eprint!("D: {:02X} ", self.registers.d);
-        eprint!("E: {:02X} ", self.registers.e);
-        eprint!("H: {:02X} ", self.registers.h);
-        eprint!("L: {:02X} ", self.registers.l);
+        log::debug!("F: {:02X} ", f);
+        log::debug!("B: {:02X} ", self.registers.b);
+        log::debug!("C: {:02X} ", self.registers.c);
+        log::debug!("D: {:02X} ", self.registers.d);
+        log::debug!("E: {:02X} ", self.registers.e);
+        log::debug!("H: {:02X} ", self.registers.h);
+        log::debug!("L: {:02X} ", self.registers.l);
 
-        eprint!("SP: {:004X} ", self.registers.sp);
+        log::debug!("SP: {:004X} ", self.registers.sp);
 
-        eprint!("PC: 00:{:004X} ", self.registers.pc);
+        log::debug!("PC: 00:{:004X} ", self.registers.pc);
 
-        eprint!(
+        log::debug!(
             "({:02X} {:02X} {:02X} {:02X})\n",
             self.bus.read_byte(self.registers.pc),
             self.bus.read_byte(self.registers.pc + 1),

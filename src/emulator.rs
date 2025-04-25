@@ -132,7 +132,7 @@ fn start_emulation(
             if elapsed < frame_duration {
                 thread::sleep(frame_duration - elapsed);
             } else {
-                eprintln!("Frame took too long: {:?}ms", elapsed.as_millis());
+                log::warn!("Frame took too long: {:?}ms", elapsed.as_millis());
             }
         }
     })

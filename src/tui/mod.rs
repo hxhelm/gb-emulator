@@ -3,6 +3,9 @@ use crossterm::event::{self, Event, KeyCode};
 use emulator_state::EmulatorStateView;
 use log::*;
 use logging::LoggingView;
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::style::{Modifier, Style};
+use ratatui::widgets::{Block, Borders, Tabs, Widget};
 use ratatui::Frame;
 use std::sync::mpsc;
 use std::sync::mpsc::Receiver;
@@ -14,6 +17,7 @@ use std::{
     thread,
     time::Duration,
 };
+use tui_logger::{init_logger, set_default_level};
 
 mod emulator_state;
 mod logging;
@@ -22,7 +26,7 @@ const SNAPSHOT_DELAY_MS: u64 = 200;
 const TUI_EVENT_POLL_MS: u64 = 4;
 
 pub(super) trait Page {
-    fn draw(&mut self, frame: &mut Frame);
+    fn draw(&mut self, frame: &mut Frame, area: Rect);
     fn handle_event(&mut self, event: AppEvent);
 }
 
@@ -32,17 +36,28 @@ enum Tab {
 }
 
 impl Tab {
-    // fn as_str(&self) -> &'static str {
-    //     match self {
-    //         Self::EmulatorState(_) => "Emulator State",
-    //         Self::Logging(_) => "Logging",
-    //     }
-    // }
+    fn names() -> Vec<&'static str> {
+        vec!["Emulator State", "Logging"]
+    }
+
+    fn as_index(&self) -> usize {
+        match self {
+            Self::EmulatorState(_) => 0,
+            Self::Logging(_) => 1,
+        }
+    }
 
     fn handle_event(&mut self, event: AppEvent) {
         match self {
             Self::EmulatorState(emulator_state_page) => emulator_state_page.handle_event(event),
             Self::Logging(logging_state_page) => logging_state_page.handle_event(event),
+        }
+    }
+
+    fn next_tab(&mut self, emulator_state_view: EmulatorStateView, logging_view: LoggingView) {
+        *self = match self {
+            Self::EmulatorState(_) => Self::Logging(logging_view),
+            Self::Logging(_) => Self::EmulatorState(emulator_state_view),
         }
     }
 }
@@ -85,12 +100,20 @@ impl Debugger {
 
         let tui_thread = {
             let emulator_state_view = EmulatorStateView::new(emulator.clone());
-            let mut tab = Tab::EmulatorState(emulator_state_view);
+            let logging_view = LoggingView::new();
+            let mut tab = Tab::EmulatorState(emulator_state_view.clone());
             let terminated_clone = terminated.clone();
             let paused_clone = paused.clone();
 
             thread::spawn(move || {
-                run_tui_thread(receiver, terminated_clone, paused_clone, &mut tab)
+                run_tui_thread(
+                    receiver,
+                    terminated_clone,
+                    paused_clone,
+                    &mut tab,
+                    emulator_state_view,
+                    logging_view,
+                )
             })
         };
 
@@ -102,9 +125,9 @@ impl Debugger {
     }
 
     pub fn shutdown(self) {
-        self.tui_thread.join().unwrap();
-        self.snapshot_thread.join().unwrap();
         self.input_thread.join().unwrap();
+        self.snapshot_thread.join().unwrap();
+        self.tui_thread.join().unwrap();
     }
 }
 
@@ -113,7 +136,12 @@ fn run_tui_thread(
     terminated: Arc<AtomicBool>,
     paused: Arc<AtomicBool>,
     tab: &mut Tab,
+    emulator_state_view: EmulatorStateView,
+    logging_view: LoggingView,
 ) {
+    init_logger(LevelFilter::Info).unwrap();
+    set_default_level(LevelFilter::Info);
+
     let mut terminal = ratatui::init();
 
     while !terminated.load(Ordering::Relaxed) {
@@ -137,6 +165,9 @@ fn run_tui_thread(
                             let is_paused = paused.load(Ordering::Relaxed);
                             paused.store(!is_paused, Ordering::Relaxed);
                         }
+                        KeyCode::Tab | KeyCode::Char('\t') => {
+                            tab.next_tab(emulator_state_view.clone(), logging_view.clone())
+                        }
                         _ => (),
                     }
                 }
@@ -147,9 +178,23 @@ fn run_tui_thread(
         tab.handle_event(event);
 
         terminal
-            .draw(|frame| match tab {
-                Tab::EmulatorState(emulator_state_view) => emulator_state_view.draw(frame),
-                Tab::Logging(logging_view) => logging_view.draw(frame),
+            .draw(|frame| {
+                let [tabs_area, page_area] =
+                    Layout::vertical([Constraint::Length(3), Constraint::Min(25)])
+                        .areas(frame.area());
+
+                Tabs::new(Tab::names().iter().cloned())
+                    .block(Block::default().title("States").borders(Borders::ALL))
+                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED))
+                    .select(tab.as_index())
+                    .render(tabs_area, frame.buffer_mut());
+
+                match tab {
+                    Tab::EmulatorState(emulator_state_view) => {
+                        emulator_state_view.draw(frame, page_area)
+                    }
+                    Tab::Logging(logging_view) => logging_view.draw(frame, page_area),
+                }
             })
             .expect("Failed to draw TUI frame.");
     }
@@ -168,9 +213,9 @@ fn run_snapshot_thread(
             emulator.clone()
         };
 
-        snapshot_sender
+        let _ = snapshot_sender
             .send(AppEvent::StateEvent(emulator))
-            .unwrap();
+            .map_err(|_| log::error!("Error while submitting StateEvent with new snapshot."));
 
         thread::sleep(Duration::from_millis(SNAPSHOT_DELAY_MS));
     }
