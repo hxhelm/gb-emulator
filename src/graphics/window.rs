@@ -15,7 +15,6 @@ use winit::event::{Event, KeyEvent, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
 use winit::keyboard::{Key, KeyCode, NamedKey};
 use winit::window::{Window, WindowId};
-use winit_input_helper::WinitInputHelper;
 
 use super::{PixelData, LCD_HEIGHT, LCD_WIDTH};
 

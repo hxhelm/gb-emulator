@@ -14,9 +14,8 @@ log = "0.4.22"
 pixels = "0.15.0"
 ratatui = "0.29.0"
 tui-logger = "0.17.1"
-winit = { version = "0.30.5", features = ["rwh_05"] }
-winit_input_helper = "0.16.0"
+winit = { version = "0.30.11", features = ["rwh_06", "wayland"] }
 
 [dev-dependencies]
 ureq = "3.0.11"
-zip = "2.6.1"
+zip = "4.0.0"
