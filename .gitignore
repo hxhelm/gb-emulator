@@ -7,3 +7,5 @@ boot/*
 
 # data directory used for temporary files
 data
+
+.direnv
