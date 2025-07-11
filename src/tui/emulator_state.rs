@@ -46,11 +46,15 @@ impl Page for EmulatorStateView {
             .direction(Direction::Vertical)
             .constraints([
                 Constraint::Length(3),
-                Constraint::Length(13),
-                Constraint::Min(5),
+                Constraint::Min(13),
                 Constraint::Length(3),
             ])
             .split(area);
+
+        let inner_state_view = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .split(chunks[1]);
 
         let instruction_widget = Paragraph::new(format!(
             "Current Instruction: {:02X}",
@@ -66,7 +70,7 @@ impl Page for EmulatorStateView {
             .collect();
         let registers_widget = List::new(register_items)
             .block(Block::default().borders(Borders::ALL).title("Registers"));
-        frame.render_widget(registers_widget, chunks[1]);
+        frame.render_widget(registers_widget, inner_state_view[1]);
 
         let scroll_status =
             Paragraph::new(format!("Scroll position: {}", self.memory_vertical_scroll)).block(
@@ -74,9 +78,9 @@ impl Page for EmulatorStateView {
                     .borders(Borders::ALL)
                     .title("Scroll status"),
             );
-        frame.render_widget(scroll_status, chunks[3]);
+        frame.render_widget(scroll_status, chunks[2]);
 
-        let memory_chunk = chunks[2];
+        let memory_chunk = inner_state_view[0];
         self.memory_view_block_height = (memory_chunk.height - 2).into();
         let memory_buffer_size: usize =
             MEMORY_VIEW_ELEMENTS_PER_LINE * self.memory_view_block_height;
