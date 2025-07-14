@@ -5,6 +5,10 @@
 boot/*
 !boot/.gitkeep
 
+# folder for game roms
+roms/*
+!roms/.gitkeep
+
 # data directory used for temporary files
 data
 
