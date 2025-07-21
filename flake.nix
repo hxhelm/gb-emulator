@@ -31,7 +31,7 @@
 
           # Environment variables needed for runtime stuff
           LD_LIBRARY_PATH = libPath;
-          RUST_LOG = "debug";
+          RUST_LOG = "warn";
         };
       });
 }

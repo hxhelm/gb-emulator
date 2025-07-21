@@ -56,6 +56,7 @@ fn main() -> Result<()> {
             &emulator.paused.clone(),
         ))
     } else {
+        env_logger::init();
         None
     };
 

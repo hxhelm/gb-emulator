@@ -30,7 +30,6 @@ impl CPU {
     pub fn init(boot_rom: Option<&[u8]>, cartridge_contents: &[u8]) -> Self {
         let mut cpu = Self::default();
 
-        // TODO: support bigger cartridges with memory bank https://gbdev.io/pandocs/MBCs.html#mbcs
         cpu.load_cartridge(cartridge_contents);
 
         match boot_rom {
@@ -77,6 +76,8 @@ impl CPU {
             self.registers.pc += bytes;
         }
 
+        // self.log_state();
+
         let instruction_cycles = instruction.execute(self);
         self.update_timers(instruction_cycles);
 
@@ -100,7 +101,7 @@ impl CPU {
         if self.bus.read_byte(SERIAL_TRANSFER_CONTROL) == 0x81 {
             let character = self.bus.read_byte(SERIAL_TRANSFER_DATA);
             if character != 0x00 {
-                log::debug!("{}", character as char);
+                log::info!("{}", character as char);
                 self.bus.write_byte(SERIAL_TRANSFER_DATA, 0x00);
             }
         }
@@ -108,22 +109,19 @@ impl CPU {
 
     #[allow(unused)]
     pub fn log_state(&self) {
-        log::debug!("A: {:02X} ", self.registers.a);
-        let f: u8 = (&self.registers.f).into();
-        log::debug!("F: {:02X} ", f);
-        log::debug!("B: {:02X} ", self.registers.b);
-        log::debug!("C: {:02X} ", self.registers.c);
-        log::debug!("D: {:02X} ", self.registers.d);
-        log::debug!("E: {:02X} ", self.registers.e);
-        log::debug!("H: {:02X} ", self.registers.h);
-        log::debug!("L: {:02X} ", self.registers.l);
-
-        log::debug!("SP: {:004X} ", self.registers.sp);
-
-        log::debug!("PC: 00:{:004X} ", self.registers.pc);
-
         log::debug!(
-            "({:02X} {:02X} {:02X} {:02X})\n",
+            target: "instruction",
+            "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+            self.registers.a,
+            u8::from(&self.registers.f),
+            self.registers.b,
+            self.registers.c,
+            self.registers.d,
+            self.registers.e,
+            self.registers.h,
+            self.registers.l,
+            self.registers.sp,
+            self.registers.pc,
             self.bus.read_byte(self.registers.pc),
             self.bus.read_byte(self.registers.pc + 1),
             self.bus.read_byte(self.registers.pc + 2),

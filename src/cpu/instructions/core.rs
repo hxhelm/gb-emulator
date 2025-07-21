@@ -103,7 +103,10 @@ impl Executable for Instruction {
             Self::Bit(instruction) => instruction.execute(cpu),
             Self::Res(instruction) => instruction.execute(cpu),
             Self::Set(instruction) => instruction.execute(cpu),
-            Self::Invalid(_opcode) => todo!(), // freeze and dump out opcode for debugging,
+            Self::Invalid(opcode) => {
+                eprintln!("Invalid opcode {opcode}");
+                panic!();
+            }
         }
     }
 }
