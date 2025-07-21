@@ -12,6 +12,9 @@ const ROM_BANK_1_END: u16 = 0x7FFF;
 const VRAM_START: u16 = 0x8000;
 const VRAM_END: u16 = 0x9FFF;
 const VRAM_SIZE: usize = (VRAM_END - VRAM_START + 1) as usize;
+const EXTERNAL_RAM_START: u16 = 0xA000;
+const EXTERNAL_RAM_END: u16 = 0xBFFF;
+const EXTERNAL_RAM_SIZE: usize = (EXTERNAL_RAM_END - EXTERNAL_RAM_START + 1) as usize;
 const WRAM_START: u16 = 0xC000;
 const WRAM_END: u16 = 0xDFFF;
 const WRAM_SIZE: usize = (WRAM_END - WRAM_START + 1) as usize;
@@ -23,11 +26,11 @@ const HRAM_END: u16 = 0xFFFE;
 const HRAM_SIZE: usize = (HRAM_END - HRAM_START + 1) as usize;
 const BOOT_ROM_LENGTH: u16 = 0x0100;
 
-const BYTE_INVALID_READ: u8 = 0xFF;
+pub(super) const BYTE_INVALID_READ: u8 = 0xFF;
 
 #[derive(Clone)]
 pub struct Bus {
-    rom: Memory,
+    cartridge: Memory,
     vram: Addressible<VRAM_SIZE>,
     wram: Addressible<WRAM_SIZE>,
     // TODO: OAM DMA transfer https://gbdev.io/pandocs/OAM_DMA_Transfer.html#oam-dma-transfer
@@ -39,6 +42,10 @@ pub struct Bus {
     boot_rom: [u8; BOOT_ROM_LENGTH as usize],
     pub boot_rom_disabled: bool,
 }
+
+pub const CARTRIDGE_TYPE: u16 = 0x0147;
+pub const CARTRIDGE_ROM_SIZE: u16 = 0x0148;
+pub const CARTRIDGE_RAM_SIZE: u16 = 0x0149;
 
 /// JOYPAD input register address
 pub const JOYP: u16 = 0xFF00;
@@ -103,7 +110,7 @@ pub(super) struct IORegisters {
 impl Default for Bus {
     fn default() -> Self {
         Self {
-            rom: Memory::default(),
+            cartridge: Memory::default(),
             vram: Addressible::default(),
             wram: Addressible::default(),
             oam: Addressible::default(),
@@ -121,11 +128,11 @@ impl Bus {
         match address {
             ROM_BANK_0_START..=ROM_BANK_1_END => {
                 if self.boot_rom_disabled {
-                    self.rom.read(address)
+                    self.cartridge.read_rom(address)
                 } else {
                     match address {
                         0..BOOT_ROM_LENGTH => self.boot_rom[address as usize],
-                        _ => self.rom.read(address),
+                        _ => self.cartridge.read_rom(address),
                     }
                 }
             }
@@ -135,6 +142,9 @@ impl Bus {
                 } else {
                     self.vram.read(address - VRAM_START)
                 }
+            }
+            EXTERNAL_RAM_START..=EXTERNAL_RAM_END => {
+                self.cartridge.read_ram(address - EXTERNAL_RAM_START)
             }
             WRAM_START..=WRAM_END => self.wram.read(address - WRAM_START),
             0xE000..=0xFDFF => {
@@ -166,7 +176,8 @@ impl Bus {
             SCROLL_Y => self.io.scroll_y,
             SCROLL_X => self.io.scroll_x,
             BOOT_DISABLE => self.io.boot_rom_disable,
-            _ => unimplemented!("Tried to read from unmapped bus address 0x{address:04X}"),
+            // _ => unimplemented!("Tried to read from unmapped bus address 0x{address:04X}"),
+            _ => BYTE_INVALID_READ,
         }
     }
 
@@ -174,11 +185,14 @@ impl Bus {
         match address {
             // we don't check for the boot rom area here because the boot rom does not write in its
             // own address space
-            ROM_BANK_0_START..=ROM_BANK_1_END => self.rom.write(address, byte),
+            ROM_BANK_0_START..=ROM_BANK_1_END => self.cartridge.write_rom(address, byte),
             VRAM_START..=VRAM_END => {
                 if !matches!(self.ppu_mode, PPUMode::SendPixels) {
                     self.vram.write(address - VRAM_START, byte)
                 }
+            }
+            EXTERNAL_RAM_START..=EXTERNAL_RAM_END => {
+                self.cartridge.write_ram(address - EXTERNAL_RAM_START, byte)
             }
             WRAM_START..=WRAM_END => self.wram.write(address - WRAM_START, byte),
             0xE000..=0xFDFF => {
@@ -255,14 +269,12 @@ impl Bus {
     }
 
     pub fn write_cartridge(&mut self, rom: &[u8]) {
-        let start: usize = ROM_BANK_0_START.into();
-        let end: usize = ROM_BANK_1_END.into();
+        self.cartridge = Memory::with_custom_size(
+            rom[usize::from(CARTRIDGE_ROM_SIZE)],
+            rom[usize::from(CARTRIDGE_RAM_SIZE)],
+        );
 
-        let slice = &rom[start..end.min(rom.len())];
-
-        for (i, byte) in slice.iter().enumerate() {
-            self.rom.write(i as u16, *byte);
-        }
+        self.cartridge.write_cartridge(rom);
     }
 
     pub fn write_boot_rom(&mut self, rom: &[u8]) {
@@ -280,15 +292,18 @@ impl Bus {
         match address {
             ROM_BANK_0_START..=ROM_BANK_1_END => {
                 if self.boot_rom_disabled {
-                    self.rom.read(address)
+                    self.cartridge.read_rom(address)
                 } else {
                     match address {
                         0..BOOT_ROM_LENGTH => self.boot_rom[address as usize],
-                        _ => self.rom.read(address),
+                        _ => self.cartridge.read_rom(address),
                     }
                 }
             }
             VRAM_START..=VRAM_END => self.vram.read(address - VRAM_START),
+            EXTERNAL_RAM_START..=EXTERNAL_RAM_END => {
+                self.cartridge.read_ram(address - EXTERNAL_RAM_START)
+            }
             WRAM_START..=WRAM_END => self.wram.read(address - WRAM_START),
             OAM_START..=OAM_END => self.oam.read(address - OAM_START),
             HRAM_START..=HRAM_END => self.hram.read(address - HRAM_START),
