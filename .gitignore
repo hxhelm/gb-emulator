@@ -7,7 +7,7 @@ boot/*
 
 # folder for game roms
 roms/*
-!roms/.gitkeep
+!roms/print-metadata.sh
 
 # data directory used for temporary files
 data
