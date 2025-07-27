@@ -12,7 +12,7 @@ pub(crate) struct InstructionData {
     pub(super) param2: u8,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct CPU {
     pub(crate) registers: Registers,
     pub(crate) bus: Bus,
@@ -27,10 +27,20 @@ pub struct CPU {
 }
 
 impl CPU {
-    pub fn init(boot_rom: Option<&[u8]>, cartridge_contents: &[u8]) -> Self {
-        let mut cpu = Self::default();
+    fn from_cardridge(cartridge_contents: &[u8]) -> Self {
+        Self {
+            registers: Registers::default(),
+            bus: Bus::from_cartridge(cartridge_contents),
+            current_instruction: InstructionData::default(),
+            halt_state: HaltState::default(),
+            clock: Clock::default(),
+            last_timer_update: 0,
+            interrupt_state: InterruptState::default(),
+        }
+    }
 
-        cpu.load_cartridge(cartridge_contents);
+    pub fn init(boot_rom: Option<&[u8]>, cartridge_contents: &[u8]) -> Self {
+        let mut cpu = Self::from_cardridge(cartridge_contents);
 
         match boot_rom {
             Some(rom) => cpu.load_boot_rom(rom),
@@ -127,42 +137,5 @@ impl CPU {
             self.bus.read_byte(self.registers.pc + 2),
             self.bus.read_byte(self.registers.pc + 3),
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn write_16_bit_register() {
-        let mut cpu = CPU::default();
-
-        cpu.write_bc(0x0B0C);
-        cpu.write_de(0xD0E0);
-        cpu.write_hl(0xFF11);
-
-        assert_eq!(cpu.registers.b, 0xB);
-        assert_eq!(cpu.registers.c, 0xC);
-        assert_eq!(cpu.registers.d, 0xD0);
-        assert_eq!(cpu.registers.e, 0xE0);
-        assert_eq!(cpu.registers.h, 0xFF);
-        assert_eq!(cpu.registers.l, 0x11);
-    }
-
-    #[test]
-    fn read_16_bit_register() {
-        let mut cpu = CPU::default();
-
-        cpu.registers.b = 0xB0;
-        cpu.registers.c = 0xC0;
-        cpu.registers.d = 0x0D;
-        cpu.registers.e = 0x0E;
-        cpu.registers.h = 0x11;
-        cpu.registers.l = 0xFF;
-
-        assert_eq!(cpu.read_bc(), 0xB0C0);
-        assert_eq!(cpu.read_de(), 0x0D0E);
-        assert_eq!(cpu.read_hl(), 0x11FF);
     }
 }

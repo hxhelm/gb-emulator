@@ -107,10 +107,17 @@ pub(super) struct IORegisters {
     pub(super) scroll_x: u8,
 }
 
-impl Default for Bus {
-    fn default() -> Self {
+impl Bus {
+    pub fn from_cartridge(rom: &[u8]) -> Self {
+        let mut cartridge = Memory::with_custom_size(
+            rom[usize::from(CARTRIDGE_ROM_SIZE)],
+            rom[usize::from(CARTRIDGE_RAM_SIZE)],
+        );
+
+        cartridge.write_cartridge(rom);
+
         Self {
-            cartridge: Memory::default(),
+            cartridge,
             vram: Addressible::default(),
             wram: Addressible::default(),
             oam: Addressible::default(),
@@ -121,9 +128,7 @@ impl Default for Bus {
             boot_rom_disabled: false,
         }
     }
-}
 
-impl Bus {
     pub fn read_byte(&self, address: u16) -> u8 {
         match address {
             ROM_BANK_0_START..=ROM_BANK_1_END => {
@@ -266,15 +271,6 @@ impl Bus {
 
     pub fn update_ppu_mode(&mut self, mode: PPUMode) {
         self.ppu_mode = mode;
-    }
-
-    pub fn write_cartridge(&mut self, rom: &[u8]) {
-        self.cartridge = Memory::with_custom_size(
-            rom[usize::from(CARTRIDGE_ROM_SIZE)],
-            rom[usize::from(CARTRIDGE_RAM_SIZE)],
-        );
-
-        self.cartridge.write_cartridge(rom);
     }
 
     pub fn write_boot_rom(&mut self, rom: &[u8]) {

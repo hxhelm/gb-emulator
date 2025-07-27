@@ -6,10 +6,6 @@ use crate::memory::bus::{
 };
 
 impl CPU {
-    pub(super) fn load_cartridge(&mut self, rom: &[u8]) {
-        self.bus.write_cartridge(rom);
-    }
-
     pub(super) fn load_boot_rom(&mut self, boot_rom: &[u8]) {
         self.bus.write_boot_rom(boot_rom);
 

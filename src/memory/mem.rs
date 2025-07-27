@@ -84,19 +84,6 @@ impl RamSize {
     }
 }
 
-impl Default for Memory {
-    fn default() -> Self {
-        Self {
-            rom: vec![0; 0],
-            rom_size: RomSize::Unset,
-            rom_bank: 1,
-            ram: vec![0; 0],
-            ram_size: RamSize::Unset,
-            ram_enabled: false,
-        }
-    }
-}
-
 impl Memory {
     pub(super) fn read_rom(&self, address: u16) -> u8 {
         match self.rom_size {
@@ -158,21 +145,19 @@ impl Memory {
     }
 
     pub(super) fn read_ram(&self, address: u16) -> u8 {
-        unimplemented!()
         // TODO: ram bank switching
-        // match self.ram_size {
-        //     RamSize::Unset => BYTE_INVALID_READ,
-        //     RamSize::Extended(size, banks) => 0,
-        // }
+        match self.ram_size {
+            RamSize::Unset => BYTE_INVALID_READ,
+            RamSize::Extended(size, banks) => 0,
+        }
     }
 
     pub(super) fn write_ram(&self, address: u16, byte: u8) {
-        unimplemented!()
         // TODO: ram bank switching
-        // match self.ram_size {
-        //     RamSize::Unset => return,
-        //     RamSize::Extended(size, banks) => {}
-        // }
+        match self.ram_size {
+            RamSize::Unset => return,
+            RamSize::Extended(size, banks) => {}
+        }
     }
 }
 
