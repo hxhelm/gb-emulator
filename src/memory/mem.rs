@@ -6,6 +6,8 @@ const RAM_ENABLE_END: u16 = 0x1FFF;
 const RAM_ENABLE_VALUE: u8 = 0x0A;
 const ROM_BANK_NUMBER_START: u16 = 0x2000;
 const ROM_BANK_NUMBER_END: u16 = 0x3FFF;
+const RAM_BANK_NUMBER_START: u16 = 0x4000;
+const RAM_BANK_NUMBER_END: u16 = 0x5FFF;
 
 #[derive(Clone)]
 pub struct Memory {
@@ -14,6 +16,7 @@ pub struct Memory {
     rom_bank: u16,
     ram: Vec<u8>,
     ram_size: RamSize,
+    ram_bank: u16,
     ram_enabled: bool,
 }
 
@@ -82,9 +85,32 @@ impl RamSize {
             Self::Extended(size, _) => *size,
         }
     }
+
+    fn banks(&self) -> u16 {
+        match self {
+            Self::Unset => 0,
+            Self::Extended(_, banks) => *banks,
+        }
+    }
 }
 
 impl Memory {
+    /// Allocate a single Vec for the cartridge rom and ram
+    pub(super) fn with_custom_size(rom_value: u8, ram_value: u8) -> Self {
+        let rom_size = RomSize::from_header(rom_value);
+        let ram_size = RamSize::from_header(ram_value);
+
+        Self {
+            rom: vec![0; usize::try_from(rom_size.bytes()).unwrap()],
+            rom_size,
+            rom_bank: 1,
+            ram: vec![0; usize::try_from(ram_size.bytes()).unwrap()],
+            ram_size,
+            ram_bank: 0,
+            ram_enabled: false,
+        }
+    }
+
     pub(super) fn read_rom(&self, address: u16) -> u8 {
         match self.rom_size {
             RomSize::Unset => self.rom[address as usize],
@@ -99,6 +125,7 @@ impl Memory {
         }
     }
 
+    // TODO: https://gbdev.io/pandocs/MBC1.html#60007fff--banking-mode-select-write-only
     /// Triggers state changes when specific ROM addresses are written to. Never writes into actual
     /// ROM sections!
     pub(super) fn write_rom(&mut self, address: u16, byte: u8) {
@@ -112,6 +139,12 @@ impl Memory {
 
                 // bank 0 is not valid
                 self.rom_bank = if bank_number == 0 { 1 } else { bank_number };
+            }
+            RAM_BANK_NUMBER_START..=RAM_BANK_NUMBER_END => {
+                let bank_mask = (self.ram_size.banks().saturating_sub(1));
+                self.ram_bank = u16::from(byte) & (0x03 & bank_mask);
+
+                // TODO: 1MB MBC1 ROM switching, see TODO above
             }
             _ => {}
         }
@@ -129,34 +162,23 @@ impl Memory {
         }
     }
 
-    /// Allocate a single Vec for the cartridge rom and ram
-    pub(super) fn with_custom_size(rom_value: u8, ram_value: u8) -> Self {
-        let rom_size = RomSize::from_header(rom_value);
-        let ram_size = RamSize::from_header(ram_value);
-
-        Self {
-            rom: vec![0; usize::try_from(rom_size.bytes()).unwrap()],
-            rom_size,
-            rom_bank: 1,
-            ram: vec![0; usize::try_from(ram_size.bytes()).unwrap()],
-            ram_size,
-            ram_enabled: false,
-        }
-    }
-
     pub(super) fn read_ram(&self, address: u16) -> u8 {
-        // TODO: ram bank switching
         match self.ram_size {
             RamSize::Unset => BYTE_INVALID_READ,
-            RamSize::Extended(size, banks) => 0,
+            RamSize::Extended(size, banks) => {
+                self.ram[usize::from(address)
+                    + (usize::from(self.ram_bank) * usize::from(RAM_BANK_SIZE))]
+            }
         }
     }
 
-    pub(super) fn write_ram(&self, address: u16, byte: u8) {
-        // TODO: ram bank switching
+    pub(super) fn write_ram(&mut self, address: u16, byte: u8) {
         match self.ram_size {
             RamSize::Unset => return,
-            RamSize::Extended(size, banks) => {}
+            RamSize::Extended(size, banks) => {
+                self.ram[usize::from(address)
+                    + (usize::from(self.ram_bank) * usize::from(RAM_BANK_SIZE))] = byte
+            }
         }
     }
 }
