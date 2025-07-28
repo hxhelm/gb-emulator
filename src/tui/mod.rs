@@ -17,7 +17,6 @@ use std::{
     thread,
     time::Duration,
 };
-use tui_logger::{init_logger, set_default_level};
 
 mod emulator_state;
 mod logging;
@@ -139,9 +138,6 @@ fn run_tui_thread(
     emulator_state_view: EmulatorStateView,
     logging_view: LoggingView,
 ) {
-    init_logger(LevelFilter::Info).unwrap();
-    set_default_level(LevelFilter::Info);
-
     let mut terminal = ratatui::init();
 
     while !terminated.load(Ordering::Relaxed) {

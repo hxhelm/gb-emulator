@@ -101,13 +101,35 @@ impl Memory {
         let ram_size = RamSize::from_header(ram_value);
 
         Self {
-            rom: vec![0; usize::try_from(rom_size.bytes()).unwrap()],
+            rom: vec![BYTE_INVALID_READ; usize::try_from(rom_size.bytes()).unwrap()],
             rom_size,
             rom_bank: 1,
-            ram: vec![0; usize::try_from(ram_size.bytes()).unwrap()],
+            ram: vec![BYTE_INVALID_READ; usize::try_from(ram_size.bytes()).unwrap()],
             ram_size,
             ram_bank: 0,
             ram_enabled: false,
+        }
+    }
+
+    // load the cartridge contents into rom. Needed since Memory::write ignores writes into the ROM
+    // section
+    pub(super) fn write_cartridge(&mut self, rom: &[u8]) {
+        let length = usize::try_from(self.rom_size.bytes()).unwrap();
+
+        let cartridge_size = rom.len();
+
+        if cartridge_size != length {
+            log::warn!(
+                "Requested ROM size of 0x{:02X}B, but got cartridge of size 0x{:02X}B instead",
+                length,
+                cartridge_size
+            );
+        }
+
+        let slice = &rom[0..length.min(rom.len())];
+
+        for (i, byte) in slice.iter().enumerate() {
+            self.rom[i as usize] = *byte;
         }
     }
 
@@ -147,18 +169,6 @@ impl Memory {
                 // TODO: 1MB MBC1 ROM switching, see TODO above
             }
             _ => {}
-        }
-    }
-
-    // load the cartridge contents into rom. Needed since Memory::write ignores writes into the ROM
-    // section
-    pub(super) fn write_cartridge(&mut self, rom: &[u8]) {
-        let length = usize::try_from(self.rom_size.bytes()).unwrap();
-
-        let slice = &rom[0..length.min(rom.len())];
-
-        for (i, byte) in slice.iter().enumerate() {
-            self.rom[i as usize] = *byte;
         }
     }
 
