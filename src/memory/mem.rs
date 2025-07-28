@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use super::bus::BYTE_INVALID_READ;
+use super::bus::{BYTE_INVALID_READ, CARTRIDGE_RAM_SIZE, CARTRIDGE_ROM_SIZE};
 
 const RAM_ENABLE_END: u16 = 0x1FFF;
 const RAM_ENABLE_VALUE: u8 = 0x0A;
@@ -94,14 +94,38 @@ impl RamSize {
     }
 }
 
+// load the cartridge contents into rom. Needed since Memory::write ignores writes into the ROM
+// section
+fn write_cartridge_to_rom(rom: &mut [u8], cartridge_contents: &[u8]) {
+    let rom_size = rom.len();
+
+    if cartridge_contents.len() != rom_size {
+        log::warn!(
+            "Requested ROM size of 0x{:02X}B, but got cartridge of size 0x{:02X}B instead",
+            rom_size,
+            cartridge_contents.len()
+        );
+    }
+
+    let slice = &cartridge_contents[0..rom_size.min(cartridge_contents.len())];
+
+    for (i, byte) in slice.iter().enumerate() {
+        rom[i as usize] = *byte;
+    }
+}
+
 impl Memory {
     /// Allocate a single Vec for the cartridge rom and ram
-    pub(super) fn with_custom_size(rom_value: u8, ram_value: u8) -> Self {
-        let rom_size = RomSize::from_header(rom_value);
-        let ram_size = RamSize::from_header(ram_value);
+    pub(super) fn init(cartridge_contents: &[u8]) -> Self {
+        let rom_size = RomSize::from_header(cartridge_contents[usize::from(CARTRIDGE_ROM_SIZE)]);
+        let ram_size = RamSize::from_header(cartridge_contents[usize::from(CARTRIDGE_RAM_SIZE)]);
+
+        let mut rom = vec![BYTE_INVALID_READ; usize::try_from(rom_size.bytes()).unwrap()];
+
+        write_cartridge_to_rom(&mut rom, cartridge_contents);
 
         Self {
-            rom: vec![BYTE_INVALID_READ; usize::try_from(rom_size.bytes()).unwrap()],
+            rom,
             rom_size,
             rom_bank: 1,
             ram: vec![BYTE_INVALID_READ; usize::try_from(ram_size.bytes()).unwrap()],
@@ -111,36 +135,18 @@ impl Memory {
         }
     }
 
-    // load the cartridge contents into rom. Needed since Memory::write ignores writes into the ROM
-    // section
-    pub(super) fn write_cartridge(&mut self, rom: &[u8]) {
-        let length = usize::try_from(self.rom_size.bytes()).unwrap();
-
-        let cartridge_size = rom.len();
-
-        if cartridge_size != length {
-            log::warn!(
-                "Requested ROM size of 0x{:02X}B, but got cartridge of size 0x{:02X}B instead",
-                length,
-                cartridge_size
-            );
-        }
-
-        let slice = &rom[0..length.min(rom.len())];
-
-        for (i, byte) in slice.iter().enumerate() {
-            self.rom[i as usize] = *byte;
-        }
-    }
-
     pub(super) fn read_rom(&self, address: u16) -> u8 {
         match self.rom_size {
             RomSize::Unset => self.rom[address as usize],
             RomSize::Extended(_, _) => match address {
                 0x0000..=0x3FFF => self.rom[address as usize],
                 0x4000..=0x7FFF => {
-                    self.rom[usize::from(address - ROM_BANK_SIZE)
-                        + (usize::from(self.rom_bank) * usize::from(ROM_BANK_SIZE))]
+                    let index = usize::from(address - ROM_BANK_SIZE)
+                        + (usize::from(self.rom_bank) * usize::from(ROM_BANK_SIZE));
+
+                    assert!(index < self.rom.len());
+
+                    self.rom[index]
                 }
                 _ => BYTE_INVALID_READ,
             },

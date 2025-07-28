@@ -104,8 +104,10 @@ impl Executable for Instruction {
             Self::Res(instruction) => instruction.execute(cpu),
             Self::Set(instruction) => instruction.execute(cpu),
             Self::Invalid(opcode) => {
-                eprintln!("Invalid opcode {opcode}");
-                panic!();
+                panic!(
+                    "Invalid opcode [{}] | 0x{:02X}. PC: {:04X}",
+                    opcode, opcode, cpu.registers.pc
+                );
             }
         }
     }

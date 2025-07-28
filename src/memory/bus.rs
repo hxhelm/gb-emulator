@@ -108,16 +108,9 @@ pub(super) struct IORegisters {
 }
 
 impl Bus {
-    pub fn from_cartridge(rom: &[u8]) -> Self {
-        let mut cartridge = Memory::with_custom_size(
-            rom[usize::from(CARTRIDGE_ROM_SIZE)],
-            rom[usize::from(CARTRIDGE_RAM_SIZE)],
-        );
-
-        cartridge.write_cartridge(rom);
-
+    pub fn from_cartridge(cartridge_contents: &[u8]) -> Self {
         Self {
-            cartridge,
+            cartridge: Memory::init(cartridge_contents),
             vram: Addressible::default(),
             wram: Addressible::default(),
             oam: Addressible::default(),
@@ -218,9 +211,9 @@ impl Bus {
             TIMER_CONTROL => self.io.timer_control = byte,
             INTERRUPT_REQUESTS => self.io.interrupt_requests = byte,
             INTERRUPT_ENABLE => self.io.interrupt_enable = byte,
-            LCD_CONTROL => self.io.lcd_control = byte,
-            LCD_STAT => self.io.lcd_stat = byte,
-            LCD_Y => self.io.lcd_y = byte,
+            LCD_CONTROL => self.set_lcd_control(byte),
+            LCD_STAT => self.set_lcd_stat(byte),
+            LCD_Y => self.set_lcd_y(byte),
             LCD_Y_COMPARE => {
                 self.io.lcd_y_compare = byte;
                 self.update_stat_lyc();
