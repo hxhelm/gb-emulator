@@ -33,7 +33,7 @@ impl RomSize {
     fn from_header(value: u8) -> Self {
         match value {
             0 => Self::Unset,
-            1..8 => Self::Extended(ROM_DEFAULT_SIZE * (1 << value), 1 << value),
+            1..8 => Self::Extended(ROM_DEFAULT_SIZE * (1 << value), 1 << (value + 1)),
             _ => panic!(
                 "Invalid cartridge header at [0148](ROM Size): 0x{:02X}",
                 value
