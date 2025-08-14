@@ -34,7 +34,7 @@ pub struct Bus {
     vram: Addressible<VRAM_SIZE>,
     wram: Addressible<WRAM_SIZE>,
     // TODO: OAM DMA transfer https://gbdev.io/pandocs/OAM_DMA_Transfer.html#oam-dma-transfer
-    oam: Addressible<OAM_SIZE>,
+    pub oam: Addressible<OAM_SIZE>,
     pub(super) io: IORegisters,
     hram: Addressible<HRAM_SIZE>,
     pub ppu_mode: PPUMode,

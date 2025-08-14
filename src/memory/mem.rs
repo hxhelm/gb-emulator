@@ -211,13 +211,15 @@ impl<const S: usize> Default for Addressible<S> {
 }
 
 impl<const S: usize> Addressible<S> {
-    pub(super) fn read(&self, address: u16) -> u8 {
+    pub fn read(&self, address: u16) -> u8 {
         let address: usize = address.into();
+        assert!(address < S);
         self.memory[address]
     }
 
-    pub(super) fn write(&mut self, address: u16, byte: u8) {
+    pub fn write(&mut self, address: u16, byte: u8) {
         let address: usize = address.into();
+        assert!(address < S);
         self.memory[address] = byte;
     }
 }

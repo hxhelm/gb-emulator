@@ -113,12 +113,22 @@ impl Bus {
     pub(crate) fn set_bg_window_tile_data_area(&mut self, status: bool) {
         self.set_lcdc_bit(LCDC_BIT_BG_WINDOW_TILE_DATA_AREA, status)
     }
+
+    pub(crate) fn get_object_tile_data_area(&self) -> TileDataArea {
+        TileDataArea::Method8000
+    }
 }
+
+pub const OBJECT_SIZE: u8 = 16;
 
 impl Bus {
     /// LCDC.2: Returns the size of all objects (1 tile or 2 stacked vertically)
-    pub(crate) fn get_obj_size(&self) -> bool {
-        self.get_lcdc_bit(LCDC_BIT_OBJ_SIZE)
+    pub(crate) fn get_obj_size(&self) -> u8 {
+        if self.get_lcdc_bit(LCDC_BIT_OBJ_SIZE) {
+            OBJECT_SIZE * 2
+        } else {
+            OBJECT_SIZE
+        }
     }
 
     /// LCDC.1: Returns whether objects are displayed

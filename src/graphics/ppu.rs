@@ -1,12 +1,6 @@
 use crate::memory::bus::Bus;
 
-use super::pixel_fetcher::PixelFetcher;
-
-/// TODO: get winit/pixels working and start paving the way for rendering:
-///  1. winit/pixels window running ✅
-///  2. read tiles/sprites from memory
-///  3. ???
-///  4. draw things to screen
+use super::{oam::ObjectBuffer, pixel_fetcher::PixelFetcher};
 
 pub const LCD_WIDTH: usize = 160;
 pub const LCD_HEIGHT: usize = 144;
@@ -36,6 +30,7 @@ pub struct PPU {
     mode_timer: u16,
     current_frame: PixelData,
     pixel_fetcher: PixelFetcher,
+    object_buffer: ObjectBuffer,
     screen_finished: bool,
     scanline_x_scroll: u8,
 }
@@ -47,6 +42,7 @@ impl PPU {
             mode_timer: CYCLES_PER_LINE,
             current_frame: PixelData::default(),
             pixel_fetcher: PixelFetcher::init(),
+            object_buffer: ObjectBuffer::init(),
             screen_finished: false,
             scanline_x_scroll: 0,
         }
@@ -90,9 +86,11 @@ impl PPU {
 
                 if bus.current_line() == 0 {
                     self.screen_finished = true;
+                    self.object_buffer.reset_line();
                     self.pixel_fetcher.reset_frame(bus);
                     PPUMode::OBJSearch
                 } else {
+                    self.object_buffer.reset_line();
                     self.pixel_fetcher.reset_line(bus);
                     PPUMode::VerticalBlank
                 }
@@ -127,8 +125,12 @@ impl PPU {
         let (should_change_mode, remaining_cycles) = self.check_mode_change();
 
         if matches!(self.mode, PPUMode::SendPixels) && remaining_cycles != 0 {
-            self.pixel_fetcher
-                .step(bus, remaining_cycles as u8, &mut self.current_frame);
+            self.pixel_fetcher.step(
+                bus,
+                &self.object_buffer,
+                remaining_cycles as u8,
+                &mut self.current_frame,
+            );
         }
 
         if should_change_mode {
@@ -137,9 +139,19 @@ impl PPU {
             bus.update_ppu_mode(self.mode);
         }
 
-        if matches!(self.mode, PPUMode::SendPixels) {
-            self.pixel_fetcher
-                .step(bus, t_cycles, &mut self.current_frame);
+        match self.mode {
+            PPUMode::OBJSearch => {
+                self.object_buffer.step(bus, t_cycles);
+            }
+            PPUMode::SendPixels => {
+                self.pixel_fetcher.step(
+                    bus,
+                    &self.object_buffer,
+                    t_cycles,
+                    &mut self.current_frame,
+                );
+            }
+            _ => {}
         }
 
         if self.screen_finished {

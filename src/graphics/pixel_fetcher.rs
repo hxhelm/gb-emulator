@@ -1,7 +1,11 @@
 #![allow(unused)]
 use crate::memory::bus::Bus;
 
-use super::{fifo::Fifo, PixelData, LCD_WIDTH};
+use super::{
+    fifo::Fifo,
+    oam::{ObjectAttribute, ObjectBuffer},
+    PixelData, LCD_WIDTH,
+};
 
 const SCROLL_X: u16 = 0xFF43;
 const SCROLL_Y: u16 = 0xFF42;
@@ -23,6 +27,7 @@ enum FetchMode {
     #[default]
     Background,
     Window,
+    Object(ObjectAttribute),
 }
 
 #[derive(Clone, Copy)]
@@ -86,8 +91,23 @@ impl PixelFetcher {
         self.discard_counter = bus.get_scroll_x() % TILE_SIZE;
     }
 
-    pub fn step(&mut self, bus: &Bus, passed_t_cycles: u8, current_frame: &mut PixelData) {
+    // TODO: avoid taking and writing the PixelData directly and just return individual pixels
+    // instead
+    // TODO: return any penalties that extend the number of cycles mode 3 takes
+    pub fn step(
+        &mut self,
+        bus: &Bus,
+        object_buffer: &ObjectBuffer,
+        passed_t_cycles: u8,
+        current_frame: &mut PixelData,
+    ) {
         let mut t_counter = 0;
+
+        // TODO: check where exactly to start pixel fetching for objects
+        if let Some(object) = self.get_object_for_current_position(object_buffer) {
+            panic!("we got some objects bitches");
+            self.set_object_fetch_mode(*object);
+        }
 
         while t_counter < passed_t_cycles {
             let (next_step, spent_cycles) = match self.current_step {
@@ -135,40 +155,54 @@ impl PixelFetcher {
         }
     }
 
-    /// Access the current 32x32 tile map and return the tile index pased on the current position.
-    /// The current tile map is detected internally using the LCDC register.
+    /// Get the tile number used as an index for accessing the tile data from vram in the next two
+    /// steps:
+    ///   * Background & Window: Access the current 32x32 tile map and return the tile index based
+    ///     on the current position. The current tile map is detected internally using the LCDC
+    ///     register.
+    ///   * Object: Read tile number from current object
     fn fetch_tile_number(&self, bus: &Bus) -> u8 {
-        let tilemap_address = match self.fetch_mode {
+        match self.fetch_mode {
             FetchMode::Background => {
                 let x_offset: u16 =
                     ((self.fetcher_x.wrapping_add(bus.get_scroll_x() / TILE_SIZE)) % 32).into();
                 let y_offset: u16 =
                     ((self.current_line.wrapping_add(bus.get_scroll_y())) / TILE_SIZE).into();
 
-                bus.get_bg_tile_map().start() + (y_offset * 32) + x_offset
+                let tilemap_address = bus.get_bg_tile_map().start() + (y_offset * 32) + x_offset;
+
+                bus.ppu_read(tilemap_address)
             }
             FetchMode::Window => {
                 let x_offset: u16 = self.fetcher_x.into();
                 let y_offset: u16 = (self.window_line_counter / TILE_SIZE).into();
 
-                bus.get_window_tile_map().start() + (y_offset * 32) + x_offset
-            }
-        };
+                let tilemap_address =
+                    bus.get_window_tile_map().start() + (y_offset * 32) + x_offset;
 
-        bus.ppu_read(tilemap_address)
+                bus.ppu_read(tilemap_address)
+            }
+            FetchMode::Object(object_attribute) => object_attribute.tile_index,
+        }
     }
 
     /// Returns the lower byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_low(&mut self, bus: &Bus) -> u8 {
-        let address = bus
-            .get_bg_window_tile_data_area()
-            .get_tile_address(self.tile_number);
+        let address = match self.fetch_mode {
+            FetchMode::Background | FetchMode::Window => bus
+                .get_bg_window_tile_data_area()
+                .get_tile_address(self.tile_number),
+            FetchMode::Object(_) => bus
+                .get_object_tile_data_area()
+                .get_tile_address(self.tile_number),
+        };
 
         let offset = 2
             * (match self.fetch_mode {
                 FetchMode::Background => self.current_line.wrapping_add(bus.get_scroll_y()),
                 FetchMode::Window => self.window_line_counter,
+                FetchMode::Object(_) => 0,
             } % TILE_SIZE);
 
         self.tile_data_address = address + offset as u16;
@@ -190,7 +224,13 @@ impl PixelFetcher {
             let offset = 7 - i;
             let high = (self.tile_data_high >> offset) & 1;
             let low = (self.tile_data_low >> offset) & 1;
-            self.background_queue.push((high << 1) | low);
+
+            let pixel = (high << 1) | low;
+
+            match self.fetch_mode {
+                FetchMode::Background | FetchMode::Window => self.background_queue.push(pixel),
+                FetchMode::Object(_) => self.sprite_queue.push(pixel),
+            };
         }
 
         self.fetcher_x += 1;
@@ -213,8 +253,13 @@ impl PixelFetcher {
 
         let bg_pixel = if bus.bg_window_enabled() { bg_pixel } else { 0 };
 
+        let final_pixel = match self.sprite_queue.pop() {
+            Ok(sprite_pixel) => sprite_pixel,
+            Err(_) => bg_pixel,
+        };
+
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
-        frame.0[index] = bg_pixel;
+        frame.0[index] = final_pixel;
 
         self.render_x += 1;
 
@@ -246,5 +291,23 @@ impl PixelFetcher {
         self.fetcher_x = 0;
         self.current_step = PixelFetcherStep::GetTile;
         self.background_queue.clear();
+    }
+
+    fn get_object_for_current_position<'a>(
+        &self,
+        object_buffer: &'a ObjectBuffer,
+    ) -> Option<&'a ObjectAttribute> {
+        object_buffer
+            .iter()
+            .find(|&object| object.x_position <= self.fetcher_x + 8)
+    }
+
+    fn set_object_fetch_mode(&mut self, object_attribute: ObjectAttribute) {
+        if matches!(self.fetch_mode, FetchMode::Object(_)) {
+            return;
+        }
+
+        self.fetch_mode = FetchMode::Object(object_attribute);
+        self.current_step = PixelFetcherStep::GetTile;
     }
 }
