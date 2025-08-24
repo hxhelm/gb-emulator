@@ -88,7 +88,9 @@ impl CPU {
     }
 
     pub fn step(&mut self) -> u8 {
-        if !matches!(self.dma_state.step(&mut self.bus), DmaState::Inactive) {
+        if !matches!(self.dma_state, DmaState::Inactive) {
+            self.dma_state = self.dma_state.step(&mut self.bus);
+
             return 4;
         }
 

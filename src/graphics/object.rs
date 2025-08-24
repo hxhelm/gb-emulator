@@ -53,7 +53,7 @@ pub(super) struct ObjectBuffer {
     buffer: [Option<ObjectAttribute>; 10],
     length: usize,
     oam_index: u8,
-    t_cycles_elapsed: u8,
+    t_cycles_elapsed: u16,
 }
 
 impl ObjectBuffer {
@@ -81,7 +81,7 @@ impl ObjectBuffer {
         let current_line = bus.current_line();
         let object_size = bus.get_obj_size();
 
-        self.t_cycles_elapsed += passed_t_cycles;
+        self.t_cycles_elapsed += passed_t_cycles as u16;
 
         while self.t_cycles_elapsed >= 2 && self.oam_index < 40 {
             self.t_cycles_elapsed -= 2;
