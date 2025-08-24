@@ -1,5 +1,6 @@
 mod boot;
 mod core;
+mod dma;
 mod instructions;
 mod interrupts;
 mod opcodes;

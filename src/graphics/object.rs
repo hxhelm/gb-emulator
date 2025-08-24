@@ -11,6 +11,43 @@ pub(super) struct ObjectAttribute {
     pub(super) attributes: u8,
 }
 
+pub(super) enum ObjectPriority {
+    LOW,
+    HIGH,
+}
+
+pub(super) enum DmgPalette {
+    OBP0,
+    OBP1,
+}
+
+#[allow(unused)]
+impl ObjectAttribute {
+    pub(super) fn get_priority(&self) -> ObjectPriority {
+        if self.attributes & 0b10000000 == 0 {
+            ObjectPriority::HIGH
+        } else {
+            ObjectPriority::LOW
+        }
+    }
+
+    pub(super) fn is_y_flipped(&self) -> bool {
+        self.attributes & 0b01000000 != 0
+    }
+
+    pub(super) fn is_x_flipped(&self) -> bool {
+        self.attributes & 0b00100000 != 0
+    }
+
+    pub(super) fn get_dmg_palette(&self) -> DmgPalette {
+        if self.attributes & 0b00010000 == 0 {
+            DmgPalette::OBP0
+        } else {
+            DmgPalette::OBP1
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 pub(super) struct ObjectBuffer {
     buffer: [Option<ObjectAttribute>; 10],

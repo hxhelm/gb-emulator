@@ -1,6 +1,6 @@
 use crate::memory::bus::Bus;
 
-use super::{oam::ObjectBuffer, pixel_fetcher::PixelFetcher};
+use super::{object::ObjectBuffer, pixel_fetcher::PixelFetcher};
 
 pub const LCD_WIDTH: usize = 160;
 pub const LCD_HEIGHT: usize = 144;
@@ -49,8 +49,10 @@ impl PPU {
     }
 
     fn check_mode_change(self) -> (bool, u16) {
-        let send_pixel_timer: u16 = (172 + self.scanline_x_scroll % 8).into();
-        let hblank_timer: u16 = (204 - self.scanline_x_scroll % 8).into();
+        // let send_pixel_timer: u16 = (172 + self.scanline_x_scroll % 8).into();
+        let send_pixel_timer = 289;
+        // let hblank_timer: u16 = (204 - self.scanline_x_scroll % 8).into();
+        let hblank_timer = 87;
         let timer = self.mode_timer;
 
         match self.mode {

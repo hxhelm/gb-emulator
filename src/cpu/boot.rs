@@ -76,7 +76,7 @@ impl CPU {
         self.bus.write_byte(LCD_Y_COMPARE, 0x00);
 
         // DMA
-        // self.bus.write_byte(0xFF46, 0xFF);
+        self.bus.write_byte(0xFF46, 0xFF);
 
         // BGP
         // self.bus.write_byte(0xFF47, 0xFC);

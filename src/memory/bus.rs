@@ -18,7 +18,7 @@ const EXTERNAL_RAM_SIZE: usize = (EXTERNAL_RAM_END - EXTERNAL_RAM_START + 1) as 
 const WRAM_START: u16 = 0xC000;
 const WRAM_END: u16 = 0xDFFF;
 const WRAM_SIZE: usize = (WRAM_END - WRAM_START + 1) as usize;
-const OAM_START: u16 = 0xFE00;
+pub const OAM_START: u16 = 0xFE00;
 const OAM_END: u16 = 0xFEFF;
 const OAM_SIZE: usize = (OAM_END - OAM_START + 1) as usize;
 const HRAM_START: u16 = 0xFF80;
@@ -73,6 +73,8 @@ pub const LCD_STAT: u16 = 0xFF41;
 pub const LCD_Y: u16 = 0xFF44;
 /// LYC register address
 pub const LCD_Y_COMPARE: u16 = 0xFF45;
+/// OAM DMA source address and start trigger
+pub const DMA_START: u16 = 0xFF46;
 /// WY register address
 pub const WINDOW_Y: u16 = 0xFF4A;
 /// WX register address
@@ -101,6 +103,7 @@ pub(super) struct IORegisters {
     pub(super) lcd_stat: u8,
     pub(super) lcd_y: u8,
     pub(super) lcd_y_compare: u8,
+    pub(super) dma_start: u8,
     pub(super) window_y: u8,
     pub(super) window_x: u8,
     pub(super) scroll_y: u8,
@@ -169,6 +172,7 @@ impl Bus {
             LCD_STAT => self.io.lcd_stat,
             LCD_Y => self.io.lcd_y,
             LCD_Y_COMPARE => self.io.lcd_y_compare,
+            DMA_START => self.io.dma_start,
             WINDOW_Y => self.io.window_y,
             WINDOW_X => self.io.window_x,
             SCROLL_Y => self.io.scroll_y,
@@ -218,6 +222,7 @@ impl Bus {
                 self.io.lcd_y_compare = byte;
                 self.update_stat_lyc();
             }
+            DMA_START => self.io.dma_start = byte,
             WINDOW_Y => self.io.window_y = byte,
             WINDOW_X => self.io.window_x = byte,
             SCROLL_Y => self.io.scroll_y = byte,
@@ -237,29 +242,6 @@ impl Bus {
             OAM_START..=OAM_END => self.oam.read(address - OAM_START),
             _ => unreachable!("Invalid PPU read of address 0x{address:04X}"),
         }
-    }
-
-    pub fn read_byte_at_offset(&self, offset: u8) -> u8 {
-        let address = 0xFF00 + u16::from(offset);
-        self.read_byte(address)
-    }
-
-    pub fn write_byte_at_offset(&mut self, offset: u8, byte: u8) {
-        let address = 0xFF00 + u16::from(offset);
-        self.write_byte(address, byte);
-    }
-
-    pub fn write_word(&mut self, address: u16, word: u16) {
-        let [lsb, msb] = word.to_le_bytes();
-        self.write_byte(address, lsb);
-        self.write_byte(address + 1, msb);
-    }
-
-    pub fn read_word(&self, address: u16) -> u16 {
-        let lsb = self.read_byte(address);
-        let msb = self.read_byte(address + 1);
-
-        u16::from_le_bytes([lsb, msb])
     }
 
     pub fn update_ppu_mode(&mut self, mode: PPUMode) {

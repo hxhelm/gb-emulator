@@ -1,9 +1,10 @@
+use super::dma::DmaState;
 use super::instructions::Executable;
 use super::interrupts::{HaltState, InterruptState};
 use super::opcodes::get_instruction;
 use super::registers::*;
 use super::timers::Clock;
-use crate::memory::bus::{Bus, SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA};
+use crate::memory::bus::{Bus, DMA_START, SERIAL_TRANSFER_CONTROL, SERIAL_TRANSFER_DATA};
 
 #[derive(Default, Clone, Copy)]
 pub(crate) struct InstructionData {
@@ -24,6 +25,8 @@ pub struct CPU {
     pub(super) last_timer_update: u64,
     /// Interrupt handling
     pub(crate) interrupt_state: InterruptState,
+    /// DMA State
+    pub(crate) dma_state: DmaState,
 }
 
 impl CPU {
@@ -36,6 +39,7 @@ impl CPU {
             clock: Clock::default(),
             last_timer_update: 0,
             interrupt_state: InterruptState::default(),
+            dma_state: DmaState::Inactive,
         }
     }
 
@@ -48,6 +52,19 @@ impl CPU {
         }
 
         cpu
+    }
+
+    pub fn read_byte(&self, address: u16) -> u8 {
+        self.bus.read_byte(address)
+    }
+
+    // TODO: wrapper for DMA detection
+    pub fn write_byte(&mut self, address: u16, byte: u8) {
+        self.bus.write_byte(address, byte);
+
+        if address == DMA_START {
+            self.dma_state = DmaState::init_dma_transfer(byte);
+        }
     }
 
     // TODO: handle out of bound fetch
@@ -71,6 +88,10 @@ impl CPU {
     }
 
     pub fn step(&mut self) -> u8 {
+        if !matches!(self.dma_state.step(&mut self.bus), DmaState::Inactive) {
+            return 4;
+        }
+
         self.current_instruction = self.fetch();
 
         if matches!(self.halt_state, HaltState::Halted) {

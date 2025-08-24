@@ -746,7 +746,7 @@ impl Executable for LD {
                 8
             }
             LD::LoadToADirectly(address) => {
-                cpu.registers.a = cpu.bus.read_byte(*address);
+                cpu.registers.a = cpu.read_byte(*address);
                 16
             }
             LD::LoadToR8(register, target) => {
@@ -784,7 +784,7 @@ impl Executable for LD {
                 8
             }
             LD::StoreADirectly(address) => {
-                cpu.bus.write_byte(*address, cpu.registers.a);
+                cpu.write_byte(*address, cpu.registers.a);
                 16
             }
             LD::StoreHLRegister(register) => {
@@ -796,7 +796,7 @@ impl Executable for LD {
                 12
             }
             LD::StoreSP(value) => {
-                cpu.bus.write_word(*value, cpu.registers.sp);
+                cpu.write_word(*value, cpu.registers.sp);
                 20
             }
         }
@@ -814,20 +814,19 @@ impl Executable for LDH {
     fn execute(&self, cpu: &mut CPU) -> u8 {
         match self {
             LDH::LoadConstant(offset) => {
-                cpu.registers.a = cpu.bus.read_byte_at_offset(*offset);
+                cpu.registers.a = cpu.read_byte_at_offset(*offset);
                 12
             }
             LDH::LoadOffset => {
-                cpu.registers.a = cpu.bus.read_byte_at_offset(cpu.registers.c);
+                cpu.registers.a = cpu.read_byte_at_offset(cpu.registers.c);
                 8
             }
             LDH::StoreConstant(offset) => {
-                cpu.bus.write_byte_at_offset(*offset, cpu.registers.a);
+                cpu.write_byte_at_offset(*offset, cpu.registers.a);
                 12
             }
             LDH::StoreOffset => {
-                cpu.bus
-                    .write_byte_at_offset(cpu.registers.c, cpu.registers.a);
+                cpu.write_byte_at_offset(cpu.registers.c, cpu.registers.a);
                 8
             }
         }
@@ -900,13 +899,36 @@ fn half_carry_set_add_u16(a: u16, b: u16) -> bool {
 }
 
 impl CPU {
+    pub fn read_byte_at_offset(&self, offset: u8) -> u8 {
+        let address = 0xFF00 + u16::from(offset);
+        self.read_byte(address)
+    }
+
+    pub fn write_byte_at_offset(&mut self, offset: u8, byte: u8) {
+        let address = 0xFF00 + u16::from(offset);
+        self.write_byte(address, byte);
+    }
+
+    pub fn write_word(&mut self, address: u16, word: u16) {
+        let [lsb, msb] = word.to_le_bytes();
+        self.write_byte(address, lsb);
+        self.write_byte(address + 1, msb);
+    }
+
+    pub fn read_word(&self, address: u16) -> u16 {
+        let lsb = self.read_byte(address);
+        let msb = self.read_byte(address + 1);
+
+        u16::from_le_bytes([lsb, msb])
+    }
+
     fn push_to_stack(&mut self, value: u16) {
         self.registers.sp = self.registers.sp.wrapping_sub(2);
-        self.bus.write_word(self.registers.sp, value);
+        self.write_word(self.registers.sp, value);
     }
 
     fn pop_from_stack(&mut self) -> u16 {
-        let result = self.bus.read_word(self.registers.sp);
+        let result = self.read_word(self.registers.sp);
         self.registers.sp = self.registers.sp.wrapping_add(2);
         result
     }

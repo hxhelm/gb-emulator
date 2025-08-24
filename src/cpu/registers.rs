@@ -126,11 +126,11 @@ impl CPU {
     }
 
     pub fn read_hl_ptr(&self) -> u8 {
-        self.bus.read_byte(self.read_hl())
+        self.read_byte(self.read_hl())
     }
 
     pub fn write_hl_ptr(&mut self, value: u8) {
-        self.bus.write_byte(self.read_hl(), value);
+        self.write_byte(self.read_hl(), value);
     }
 
     pub(crate) fn read_r8(&self, register: &R8) -> u8 {
@@ -199,6 +199,6 @@ impl CPU {
     pub(crate) fn store_at(&mut self, register: &R16Mem, value: u8) {
         let address = self.read_r16m(register);
 
-        self.bus.write_byte(address, value);
+        self.write_byte(address, value);
     }
 }

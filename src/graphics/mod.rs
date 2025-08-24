@@ -1,6 +1,6 @@
 mod fifo;
 mod memory;
-mod oam;
+mod object;
 mod pixel_fetcher;
 mod ppu;
 mod window;
