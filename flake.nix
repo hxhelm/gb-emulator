@@ -7,31 +7,49 @@
     rust-overlay.url = "github:oxalica/rust-overlay";
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-overlay, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-          overlays = [ rust-overlay.overlays.default ];
-        };
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    rust-overlay,
+    ...
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [rust-overlay.overlays.default];
+      };
 
-        # Wayland/GL runtime libraries
-        libPath = with pkgs; lib.makeLibraryPath [
-          libGL
-          libxkbcommon
-          wayland
-        ];
-      in {
-        devShells.default = pkgs.mkShell {
-          buildInputs = [
-            pkgs.rust-bin.stable.latest.default
-            pkgs.rust-analyzer
-            pkgs.pkg-config  # recommended for wayland-client builds
+      isDarwin = pkgs.stdenv.isDarwin;
+
+      # Wayland/GL runtime libraries (Linux only)
+      libPath =
+        if isDarwin
+        then ""
+        else
+          with pkgs;
+            lib.makeLibraryPath [
+              libGL
+              libxkbcommon
+              wayland
+            ];
+    in {
+      devShells.default = pkgs.mkShell {
+        buildInputs = with pkgs;
+          [
+            rust-bin.stable.latest.default
+            rust-analyzer
+            pkgs.pkg-config # recommended for wayland-client builds
+          ]
+          ++ lib.optionals (!isDarwin) [
+            libGL
+            libxkbcommon
+            wayland
           ];
 
-          # Environment variables needed for runtime stuff
-          LD_LIBRARY_PATH = libPath;
-          RUST_LOG = "warn";
-        };
-      });
+        # Environment variables needed for runtime stuff
+        LD_LIBRARY_PATH = libPath;
+        RUST_LOG = "warn";
+      };
+    });
 }

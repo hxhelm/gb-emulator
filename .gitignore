@@ -13,3 +13,5 @@ roms/*
 data
 
 .direnv
+
+.DS_Store
