@@ -79,21 +79,20 @@ impl PPU {
                     bus.request_vblank_interrupt();
                     PPUMode::VerticalBlank
                 } else {
+                    self.object_buffer.reset_line();
                     self.pixel_fetcher.reset_line(bus);
                     PPUMode::OBJSearch
                 }
             }
             PPUMode::VerticalBlank => {
                 bus.update_line();
+                self.object_buffer.reset_line();
+                self.pixel_fetcher.reset_frame(bus);
 
                 if bus.current_line() == 0 {
                     self.screen_finished = true;
-                    self.object_buffer.reset_line();
-                    self.pixel_fetcher.reset_frame(bus);
                     PPUMode::OBJSearch
                 } else {
-                    self.object_buffer.reset_line();
-                    self.pixel_fetcher.reset_line(bus);
                     PPUMode::VerticalBlank
                 }
             }
