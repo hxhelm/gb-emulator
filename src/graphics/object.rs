@@ -50,8 +50,10 @@ impl ObjectAttribute {
 
 #[derive(Clone, Copy)]
 pub(super) struct ObjectBuffer {
-    buffer: [Option<ObjectAttribute>; 10],
+    pub(super) buffer: [Option<ObjectAttribute>; 10],
     length: usize,
+    head: usize,
+    tail: usize,
     oam_index: u8,
     t_cycles_elapsed: u16,
 }
@@ -61,20 +63,109 @@ impl ObjectBuffer {
         Self {
             buffer: [None; 10],
             length: 0,
+            head: 0,
+            tail: 0,
             oam_index: 0,
             t_cycles_elapsed: 0,
         }
     }
 
     pub(super) fn reset_line(&mut self) {
-        self.buffer.iter_mut().for_each(|slot| *slot = None);
+        self.buffer.iter_mut().for_each(|item| *item = None);
         self.length = 0;
         self.oam_index = 0;
         self.t_cycles_elapsed = 0;
     }
 
+    // For the dmg_acid "Hello World" text, the y and x positions are correct and in the right
+    // order, the buffer is correctly filled with the 10 characters.
+    // The tile index simply points to the ascii representation of a character, with "H" and "W"
+    // being uppercase.
+    //
+    // [src/graphics/ppu.rs:148:21] self.object_buffer.buffer = [
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 40,
+    //             tile_index: 72,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 48,
+    //             tile_index: 101,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 56,
+    //             tile_index: 108,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 64,
+    //             tile_index: 108,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 72,
+    //             tile_index: 111,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 88,
+    //             tile_index: 87,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 96,
+    //             tile_index: 111,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 104,
+    //             tile_index: 114,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 112,
+    //             tile_index: 108,
+    //             attributes: 0,
+    //         },
+    //     ),
+    //     Some(
+    //         ObjectAttribute {
+    //             y_position: 16,
+    //             x_position: 120,
+    //             tile_index: 100,
+    //             attributes: 0,
+    //         },
+    //     ),
+    // ]
     pub(super) fn step(&mut self, bus: &Bus, passed_t_cycles: u8) {
-        if self.length >= 10 {
+        if self.is_full() {
             return;
         }
 
@@ -103,25 +194,44 @@ impl ObjectBuffer {
                 continue;
             }
 
-            if !self.try_add(object_attribute) {
-                return;
+            if self.push_back(object_attribute).is_ok() {
+                self.oam_index += 1;
             }
-
-            self.oam_index += 1;
         }
     }
 
-    fn try_add(&mut self, object_attribute: ObjectAttribute) -> bool {
-        if self.length >= self.buffer.len() {
-            return false;
+    pub fn push_back(&mut self, obj: ObjectAttribute) -> Result<(), ()> {
+        if self.is_full() {
+            return Err(());
         }
 
-        self.buffer[self.length] = Some(object_attribute);
+        self.buffer[self.tail] = Some(obj);
+        self.tail = (self.tail + 1) % self.buffer.len();
         self.length += 1;
-        true
+        Ok(())
     }
 
-    pub(super) fn iter(&self) -> impl Iterator<Item = &ObjectAttribute> {
-        self.buffer[..self.length].iter().filter_map(|s| s.as_ref())
+    pub fn pop_front_if<F>(&mut self, mut condition: F) -> Option<ObjectAttribute>
+    where
+        F: FnMut(&ObjectAttribute) -> bool,
+    {
+        if self.length == 0 {
+            return None;
+        }
+
+        let head_obj = self.buffer[self.head].as_ref()?;
+
+        if condition(head_obj) {
+            let val = self.buffer[self.head].take();
+            self.head = (self.head + 1) % self.buffer.len();
+            self.length -= 1;
+            val
+        } else {
+            None
+        }
+    }
+
+    fn is_full(&self) -> bool {
+        self.length == self.buffer.len()
     }
 }

@@ -125,9 +125,9 @@ impl Bus {
     /// LCDC.2: Returns the size of all objects (1 tile or 2 stacked vertically)
     pub(crate) fn get_obj_size(&self) -> u8 {
         if self.get_lcdc_bit(LCDC_BIT_OBJ_SIZE) {
-            OBJECT_SIZE * 2
+            16
         } else {
-            OBJECT_SIZE
+            8
         }
     }
 

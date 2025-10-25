@@ -33,6 +33,8 @@ enum FetchMode {
 #[derive(Clone, Copy)]
 pub(crate) struct PixelFetcher {
     current_step: PixelFetcherStep,
+    paused_step: Option<PixelFetcherStep>,
+    sprite_delay: u8,
     current_line: u8,
     /// Tile number fetching
     fetch_mode: FetchMode,
@@ -55,6 +57,8 @@ impl PixelFetcher {
     pub fn init() -> Self {
         Self {
             current_step: PixelFetcherStep::Sleep(6),
+            paused_step: None,
+            sprite_delay: 0,
             current_line: 0,
             fetch_mode: FetchMode::default(),
             fetcher_x: 0,
@@ -97,7 +101,7 @@ impl PixelFetcher {
     pub fn step(
         &mut self,
         bus: &Bus,
-        object_buffer: &ObjectBuffer,
+        object_buffer: &mut ObjectBuffer,
         passed_t_cycles: u8,
         current_frame: &mut PixelData,
     ) {
@@ -105,31 +109,33 @@ impl PixelFetcher {
 
         // TODO: check where exactly to start pixel fetching for objects
         while t_counter < passed_t_cycles {
-            let (next_step, spent_cycles) = self.step_subtask(bus);
+            let (next_step, spent_cycles) = match self.fetch_mode {
+                FetchMode::Object(_) => self.step_subtask_object(bus),
+                FetchMode::Background | FetchMode::Window => self.step_subtask(bus),
+            };
 
             self.current_step = next_step;
 
-            for _ in (0..spent_cycles) {
-                let pixel_pushed = self.try_push_pixel_to_screen(bus, current_frame);
-
-                if matches!(self.current_step, PixelFetcherStep::GetTile) {
-                    if let Some(object) = self.get_object_for_current_position(object_buffer) {
-                        self.set_object_fetch_mode(object);
-                    } else {
-                        self.fetch_mode = match self.fetch_mode {
-                            FetchMode::Object(_) => FetchMode::Background,
-                            _ => self.fetch_mode,
-                        };
-                    }
+            for c in (0..spent_cycles) {
+                if let Some(object) = self.get_object_for_current_position(object_buffer) {
+                    self.set_object_fetch_mode(object);
+                    self.sprite_delay = spent_cycles - c;
+                    break;
+                } else {
+                    self.fetch_mode = match self.fetch_mode {
+                        FetchMode::Object(_) => FetchMode::Background,
+                        _ => self.fetch_mode,
+                    };
                 }
+
+                t_counter += 1;
+
+                let pixel_pushed = self.try_push_pixel_to_screen(bus, current_frame);
 
                 if pixel_pushed && self.window_reached(bus) {
                     self.set_window_fetch_mode();
-                    break;
                 }
             }
-
-            t_counter += spent_cycles;
         }
     }
 
@@ -186,24 +192,17 @@ impl PixelFetcher {
             }
             PixelFetcherStep::GetTileDataLow => {
                 self.tile_data_low = self.fetch_tile_data_low(bus);
-                (PixelFetcherStep::GetTileDataHigh, 2)
+                (PixelFetcherStep::GetTileDataHigh, 1)
             }
             PixelFetcherStep::GetTileDataHigh => {
                 self.tile_data_high = self.fetch_tile_data_high(bus);
-                (PixelFetcherStep::Push, 2)
+                (PixelFetcherStep::Push, 1)
             }
             PixelFetcherStep::Push => {
-                let push_is_allowed = match self.fetch_mode {
-                    FetchMode::Object(_) => true,
-                    FetchMode::Background | FetchMode::Window => self.background_queue.is_empty(),
-                };
-
-                if push_is_allowed {
-                    self.push_pixel_data_to_queue();
-                    (PixelFetcherStep::GetTile, 2)
-                } else {
-                    (PixelFetcherStep::Push, 1)
-                }
+                self.push_pixel_data_to_queue();
+                let sprite_delay = self.sprite_delay;
+                self.sprite_delay = 0;
+                (self.paused_step.unwrap(), 2 + sprite_delay)
             }
         }
     }
@@ -242,23 +241,19 @@ impl PixelFetcher {
     /// Returns the lower byte of the tile at the address pointed to by the tile map at the given
     /// index.
     fn fetch_tile_data_low(&mut self, bus: &Bus) -> u8 {
-        let address = match self.fetch_mode {
-            FetchMode::Background | FetchMode::Window => bus
-                .get_bg_window_tile_data_area()
-                .get_tile_address(self.tile_number),
-            FetchMode::Object(_) => bus
-                .get_object_tile_data_area()
-                .get_tile_address(self.tile_number),
-        };
+        let address = (match self.fetch_mode {
+            FetchMode::Background | FetchMode::Window => bus.get_bg_window_tile_data_area(),
+            FetchMode::Object(_) => bus.get_object_tile_data_area(),
+        })
+        .get_tile_address(self.tile_number);
 
-        let offset = 2
-            * (match self.fetch_mode {
-                FetchMode::Background => self.current_line.wrapping_add(bus.get_scroll_y()),
-                FetchMode::Window => self.window_line_counter,
-                FetchMode::Object(_) => 0,
-            } % TILE_SIZE);
+        let offset = match self.fetch_mode {
+            FetchMode::Background => self.current_line.wrapping_add(bus.get_scroll_y()),
+            FetchMode::Window => self.window_line_counter,
+            FetchMode::Object(_) => 0,
+        } % TILE_SIZE;
 
-        self.tile_data_address = address + offset as u16;
+        self.tile_data_address = address + (offset * 2) as u16;
 
         bus.ppu_read(self.tile_data_address)
     }
@@ -296,26 +291,27 @@ impl PixelFetcher {
             return false;
         }
 
-        let Ok(bg_pixel) = self.background_queue.pop() else {
-            return false;
-        };
-
         if self.render_x > 159 {
             return false;
         }
 
+        let Ok(bg_pixel) = self.background_queue.pop() else {
+            return false;
+        };
+
         let bg_pixel = if bus.bg_window_enabled() { bg_pixel } else { 0 };
 
-        let final_pixel = match self.sprite_queue.pop() {
-            Ok(sprite_pixel) => {
-                if sprite_pixel == 0 {
-                    bg_pixel
-                } else {
-                    sprite_pixel
-                }
-            }
-            Err(_) => bg_pixel,
-        };
+        // let final_pixel = match self.sprite_queue.pop() {
+        //     Ok(sprite_pixel) => {
+        //         if !bus.objects_enabled() || (sprite_pixel == 0 && bg_pixel != 0) {
+        //             bg_pixel
+        //         } else {
+        //             sprite_pixel
+        //         }
+        //     }
+        //     Err(_) => bg_pixel,
+        // };
+        let final_pixel = bg_pixel;
 
         let index = ((self.current_line as usize) * LCD_WIDTH + (self.render_x as usize));
         frame.0[index] = final_pixel;
@@ -354,16 +350,11 @@ impl PixelFetcher {
 
     fn get_object_for_current_position(
         &self,
-        object_buffer: &ObjectBuffer,
+        object_buffer: &mut ObjectBuffer,
     ) -> Option<ObjectAttribute> {
-        object_buffer
-            .iter()
-            .find(|&object| {
-                object.x_position <= self.render_x + 8 && object.x_position > self.render_x
-            })
-            .map(|object| *object)
-
-        // None
+        object_buffer.pop_front_if(|object| {
+            object.x_position <= self.render_x + 8 && object.x_position > self.render_x
+        })
     }
 
     fn set_object_fetch_mode(&mut self, object_attribute: ObjectAttribute) {
@@ -372,6 +363,7 @@ impl PixelFetcher {
         }
 
         self.fetch_mode = FetchMode::Object(object_attribute);
+        self.paused_step = Some(self.current_step);
         self.current_step = PixelFetcherStep::GetTile;
     }
 }

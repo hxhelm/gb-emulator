@@ -128,7 +128,7 @@ impl PPU {
         if matches!(self.mode, PPUMode::SendPixels) && remaining_cycles != 0 {
             self.pixel_fetcher.step(
                 bus,
-                &self.object_buffer,
+                &mut self.object_buffer,
                 remaining_cycles as u8,
                 &mut self.current_frame,
             );
@@ -143,11 +143,15 @@ impl PPU {
         match self.mode {
             PPUMode::OBJSearch => {
                 self.object_buffer.step(bus, t_cycles);
+                // if bus.current_line() == 0 {
+                //     dbg!(self.object_buffer.buffer);
+                //     println!();
+                // }
             }
             PPUMode::SendPixels => {
                 self.pixel_fetcher.step(
                     bus,
-                    &self.object_buffer,
+                    &mut self.object_buffer,
                     t_cycles,
                     &mut self.current_frame,
                 );

@@ -1,7 +1,7 @@
 #![allow(unused)]
 #[derive(Copy, Clone)]
 pub struct Fifo {
-    queue: [u8; 16],
+    queue: [u8; 8],
     index: usize,
     length: usize,
 }
@@ -9,7 +9,7 @@ pub struct Fifo {
 impl Fifo {
     pub fn new() -> Self {
         Self {
-            queue: [0; 16],
+            queue: [0; 8],
             index: 0,
             length: 0,
         }
